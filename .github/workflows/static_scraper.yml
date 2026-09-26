@@ -1,0 +1,33 @@
+name: Daily DSE Static Scraper
+
+on:
+  schedule:
+    # STREAMING_CHUNK: Configuring daily cron schedule for after-market hours...
+    # Runs at 10:00 AM UTC (4:00 PM Bangladesh Standard Time) every day, Sunday through Thursday
+    - cron: '0 10 * * 0-4'
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      # STREAMING_CHUNK: Checking out code and setting up Python runner...
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # STREAMING_CHUNK: Installing required modules and running static data extraction...
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Static Scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python scraper.py --type static
