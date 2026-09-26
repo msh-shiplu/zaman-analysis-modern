@@ -67,6 +67,10 @@ def fetch_and_store_static(supabase: Client):
             # Clean up column names to match standard SQL conventions
             df.columns = [str(col).lower().replace(' ', '_') for col in df.columns]
             
+            # --- THE FIX: Drop empty or numeric columns (like '0', 'unnamed', 'sl') ---
+            cols_to_drop = [c for c in df.columns if c.isdigit() or 'unnamed' in c or 'sl' in c]
+            df = df.drop(columns=cols_to_drop, errors='ignore')
+            
             # Add timestamp
             df['timestamp'] = datetime.utcnow().isoformat()
             
