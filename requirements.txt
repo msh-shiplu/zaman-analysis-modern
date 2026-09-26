@@ -1,4 +1,4 @@
 # STREAMING_CHUNK: Defining required Python packages for web scraping and database connection...
-bdshare1.2.7
-pandas2.2.0
+bdshare==1.2.7
+pandas==2.2.0
 supabase==2.3.0
