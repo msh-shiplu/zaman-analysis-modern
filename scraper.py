@@ -3,7 +3,7 @@ import argparse
 import pandas as pd
 from datetime import datetime
 from supabase import create_client, Client
-from bdshare import get_current_trade_data, get_company_info
+from bdshare import get_current_trade_data, get_latest_pe
 
 def init_db() -> Client:
     """Initializes and returns the Supabase client."""
@@ -17,7 +17,7 @@ def init_db() -> Client:
 
 def fetch_and_store_dynamic(supabase: Client):
     """Fetches real-time trade data and pushes it to Supabase."""
-    print(f"Fetching dynamic market data at {datetime.now()}...")
+    print(f"Fetching dynamic market data at {datetime.utcnow()} UTC...")
     
     try:
         # Fetch data using bdshare
@@ -28,47 +28,70 @@ def fetch_and_store_dynamic(supabase: Client):
             return
 
         # Clean up column names to match standard SQL conventions (lowercase, underscores)
-        df.columns = [col.lower().replace(' ', '_') for col in df.columns]
+        df.columns = [str(col).lower().replace(' ', '_') for col in df.columns]
         
         # Append UTC timestamp for time-series tracking
         df['timestamp'] = datetime.utcnow().isoformat()
 
         # Convert the pandas DataFrame to a list of dictionaries for Supabase
         records = df.to_dict(orient='records')
+        
+        # Clean up the data (replace NaN/Not-a-Number with None for JSON/SQL compatibility)
+        cleaned_records = []
+        for row in records:
+            clean_row = {}
+            for k, v in row.items():
+                if pd.isna(v):
+                    clean_row[k] = None
+                else:
+                    clean_row[k] = v
+            cleaned_records.append(clean_row)
 
         # Insert data into the dse_dynamic table
-        response = supabase.table("dse_dynamic").insert(records).execute()
-        print(f"Successfully inserted {len(records)} records for dynamic market data.")
+        if cleaned_records:
+            response = supabase.table("dse_dynamic").insert(cleaned_records).execute()
+            print(f"Successfully inserted {len(cleaned_records)} records for dynamic market data.")
 
     except Exception as e:
         print(f"Error fetching dynamic data: {e}")
 
 def fetch_and_store_static(supabase: Client):
-    """Fetches daily company fundamental data and upserts it to Supabase."""
-    print(f"Fetching static company data at {datetime.now()}...")
+    """Fetches end-of-day static data for all companies in a single request."""
+    print(f"Fetching static company data at {datetime.utcnow()} UTC...")
     
-    # For demonstration, we scrape a subset. 
-    # In a full production app, you can query your dynamic table for a distinct list of all symbols.
-    symbols = ["GP", "BATBC", "SQUARETEXT", "BEXIMCO", "BRACBANK"]
-
-    for symbol in symbols:
-        try:
-            df = get_company_info(symbol)
+    try:
+        # Fetches a single DataFrame containing daily static metrics for all symbols
+        df = get_latest_pe()
+        
+        if df is not None and not df.empty:
+            # Clean up column names to match standard SQL conventions
+            df.columns = [str(col).lower().replace(' ', '_') for col in df.columns]
             
-            if not df.empty:
-                # Convert dataframe to JSON/dict for flexible storage
-                data = {
-                    "symbol": symbol, 
-                    "info": df.to_dict(), 
-                    "updated_at": datetime.utcnow().isoformat()
-                }
+            # Add timestamp
+            df['timestamp'] = datetime.utcnow().isoformat()
+            
+            # Convert DataFrame to a list of dictionaries for database insertion
+            records = df.to_dict(orient='records')
+            
+            # Clean up the data (replace NaN/Not-a-Number with None for SQL compatibility)
+            cleaned_records = []
+            for row in records:
+                clean_row = {}
+                for k, v in row.items():
+                    if pd.isna(v):
+                        clean_row[k] = None
+                    else:
+                        clean_row[k] = v
+                cleaned_records.append(clean_row)
+
+            # Insert into database
+            if cleaned_records:
+                # Inserts into the 'dse_static' table in Supabase
+                response = supabase.table('dse_static').insert(cleaned_records).execute()
+                print(f"Successfully inserted {len(cleaned_records)} static records.")
                 
-                # Upsert updates the record if it exists, or inserts it if it's new
-                supabase.table("dse_static").upsert(data).execute()
-                print(f"Successfully updated static fundamental data for {symbol}")
-                
-        except Exception as e:
-            print(f"Error fetching static data for {symbol}: {e}")
+    except Exception as e:
+        print(f"Error fetching static data: {e}")
 
 if __name__ == "__main__":
     # Setup argument parser to distinguish between cron job schedules
