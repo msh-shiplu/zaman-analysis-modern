@@ -426,6 +426,127 @@ def fetch_and_store_static(supabase: Optional[Client] = None, dry_run: bool = Fa
         raise
 
 
+def export_web_data(
+    export_dir: str,
+    supabase: Optional[Client] = None,
+    dynamic_records: Optional[List[Dict[str, Any]]] = None,
+    static_records: Optional[List[Dict[str, Any]]] = None,
+):
+    """
+    Exports a consolidated JSON snapshot (`market_data.json`) for the GitHub Pages web dashboard.
+    Merges the latest dynamic market data, static P/E fundamentals, and recent intraday history from Supabase.
+    """
+    os.makedirs(export_dir, exist_ok=True)
+    history_by_symbol: Dict[str, List[Dict[str, Any]]] = {}
+    db_dynamic_latest: List[Dict[str, Any]] = []
+    db_static_latest: List[Dict[str, Any]] = []
+
+    if supabase is not None:
+        try:
+            # Fetch up to 4000 recent dynamic records from Supabase (roughly the last 10 snapshots across 395 symbols)
+            res_dyn = (
+                supabase.table("dse_dynamic")
+                .select("symbol,ltp,high,low,close,ycp,change,trade,value,volume,timestamp")
+                .order("timestamp", desc=True)
+                .limit(4000)
+                .execute()
+            )
+            rows_dyn = res_dyn.data or []
+            seen_latest = set()
+            for r in rows_dyn:
+                sym = r.get("symbol")
+                if not sym:
+                    continue
+                if sym not in seen_latest:
+                    seen_latest.add(sym)
+                    db_dynamic_latest.append(r)
+                history_by_symbol.setdefault(sym, []).append({
+                    "t": r.get("timestamp"),
+                    "ltp": r.get("ltp"),
+                    "v": r.get("volume"),
+                    "val": r.get("value"),
+                    "chg": r.get("change"),
+                })
+            # Sort each symbol's history chronologically
+            for sym in history_by_symbol:
+                history_by_symbol[sym].reverse()
+        except Exception as e:
+            print(f"[Note] Could not query dse_dynamic history from Supabase: {e}")
+
+        try:
+            res_stat = supabase.table("dse_static").select("*").limit(1000).execute()
+            rows_stat = res_stat.data or []
+            seen_stat = set()
+            for r in rows_stat:
+                sym = r.get("symbol")
+                if not sym or sym in seen_stat:
+                    continue
+                seen_stat.add(sym)
+                info = r.get("info") if isinstance(r.get("info"), dict) else {}
+                flat_stat = {
+                    "symbol": sym,
+                    "close": r.get("close", info.get("close")),
+                    "ycp": r.get("ycp", info.get("ycp")),
+                    "pe_1": r.get("pe_1", info.get("pe_1")),
+                    "pe_2": r.get("pe_2", info.get("pe_2")),
+                    "pe_3": r.get("pe_3", info.get("pe_3")),
+                    "pe_4": r.get("pe_4", info.get("pe_4")),
+                    "pe_5": r.get("pe_5", info.get("pe_5")),
+                    "pe_6": r.get("pe_6", info.get("pe_6")),
+                    "updated_at": r.get("updated_at") or r.get("timestamp"),
+                }
+                db_static_latest.append(flat_stat)
+        except Exception as e:
+            print(f"[Note] Could not query dse_static from Supabase: {e}")
+
+    final_dynamic = dynamic_records if dynamic_records else db_dynamic_latest
+    final_static = static_records if static_records else db_static_latest
+
+    # If either is still empty (e.g. when running --type dynamic without Supabase history), scrape fallback
+    if not final_dynamic:
+        try:
+            df_d = get_current_trade_data()
+            if df_d is not None and not df_d.empty:
+                final_dynamic = clean_records(clean_dynamic_data(df_d).to_dict(orient="records"))
+        except Exception as e:
+            print(f"[Note] Fallback dynamic scrape skipped: {e}")
+
+    if not final_static:
+        try:
+            df_s = get_latest_pe()
+            if df_s is not None and not df_s.empty:
+                final_static = clean_records(clean_static_data(df_s).to_dict(orient="records"))
+        except Exception as e:
+            print(f"[Note] Fallback static scrape skipped: {e}")
+
+    # Ensure history_by_symbol has at least the current point for each symbol
+    for r in final_dynamic:
+        sym = r.get("symbol")
+        if sym and sym not in history_by_symbol:
+            history_by_symbol[sym] = [{
+                "t": r.get("timestamp"),
+                "ltp": r.get("ltp"),
+                "v": r.get("volume"),
+                "val": r.get("value"),
+                "chg": r.get("change"),
+            }]
+
+    payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "dynamic_count": len(final_dynamic),
+        "static_count": len(final_static),
+        "dynamic": final_dynamic,
+        "static": final_static,
+        "history": history_by_symbol,
+    }
+
+    target_file = os.path.join(export_dir, "market_data.json")
+    with open(target_file, "w", encoding="utf-8") as f:
+        json.dump(payload, f, separators=(",", ":"))
+    print(f"Exported dashboard dataset to {target_file} ({len(final_dynamic)} dynamic, {len(final_static)} static symbols).")
+    return target_file
+
+
 if __name__ == "__main__":
     # Automatically load .env if present
     load_environment()
@@ -433,9 +554,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dhaka Stock Exchange Scraper")
     parser.add_argument(
         '--type',
-        choices=['dynamic', 'static', 'all'],
+        choices=['dynamic', 'static', 'all', 'none'],
         default='all',
-        help="Specify 'dynamic' for trade data, 'static' for P/E fundamental data, or 'all' for both (default: 'all')"
+        help="Specify 'dynamic' for trade data, 'static' for P/E fundamental data, 'all' for both, or 'none' for export only"
     )
     parser.add_argument(
         '--dry-run',
@@ -446,6 +567,12 @@ if __name__ == "__main__":
         '--save',
         action='store_true',
         help="Save scraped records to local JSON files in the output/ directory"
+    )
+    parser.add_argument(
+        '--export-web',
+        metavar='DIR',
+        default=None,
+        help="Export consolidated market_data.json to DIR (e.g. docs/data) for the web dashboard"
     )
     args = parser.parse_args()
 
@@ -469,12 +596,23 @@ if __name__ == "__main__":
 
     # Execute scrapers based on --type
     try:
+        dyn_records = None
+        stat_records = None
+
         if args.type in ('dynamic', 'all'):
-            fetch_and_store_dynamic(supabase=db_client, dry_run=dry_run, save=args.save)
+            dyn_records = fetch_and_store_dynamic(supabase=db_client, dry_run=dry_run, save=args.save)
             print()
 
         if args.type in ('static', 'all'):
-            fetch_and_store_static(supabase=db_client, dry_run=dry_run, save=args.save)
+            stat_records = fetch_and_store_static(supabase=db_client, dry_run=dry_run, save=args.save)
+
+        if args.export_web:
+            export_web_data(
+                export_dir=args.export_web,
+                supabase=db_client,
+                dynamic_records=dyn_records,
+                static_records=stat_records,
+            )
 
     except Exception as exc:
         print(f"Execution failed: {exc}", file=sys.stderr)

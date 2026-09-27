@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DSE Market &amp; Fundamental Analytics — Zaman Analysis</title>
+  <meta name="description" content="Dhaka Stock Exchange (DSE) live intraday trade screener, P/E fundamental valuation metrics, market breadth, and historical stock price analytics." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-group">
+        <div class="brand-mark">DSE</div>
+        <div>
+          <h1 class="brand-title">Zaman DSE Market &amp; P/E Screener</h1>
+          <div class="brand-subtitle">Dhaka Stock Exchange Intraday Trade &amp; Fundamental Valuation Terminal</div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="timestamp-badge" id="last-updated-badge" title="Timestamp of the latest market snapshot">
+          <span class="status-dot" id="source-status-dot"></span>
+          <span id="last-updated-text">Loading snapshot...</span>
+        </div>
+        <button type="button" class="btn" id="btn-export-csv" title="Download current table view as CSV">Export CSV</button>
+        <button type="button" class="btn" id="btn-theme-toggle" title="Switch between Dark and Light mode">Light Mode</button>
+        <button type="button" class="btn btn-primary" id="btn-supabase-config">Supabase Live</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Market KPI Strip -->
+    <section class="kpi-strip" aria-label="Market Summary Metrics">
+      <div class="kpi-card">
+        <div class="kpi-label">Market Breadth (Traded)</div>
+        <div class="kpi-value" id="kpi-breadth-summary">-- / -- / --</div>
+        <div class="breadth-bar" aria-hidden="true">
+          <div class="breadth-seg-up" id="breadth-bar-up" style="width: 33%"></div>
+          <div class="breadth-seg-flat" id="breadth-bar-flat" style="width: 34%"></div>
+          <div class="breadth-seg-down" id="breadth-bar-down" style="width: 33%"></div>
+        </div>
+        <div class="kpi-sub">
+          <span class="text-up" id="kpi-adv-count">0 Adv</span>
+          <span class="text-flat" id="kpi-flat-count">0 Unch</span>
+          <span class="text-down" id="kpi-dec-count">0 Dec</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Total Turnover (Value)</div>
+        <div class="kpi-value" id="kpi-total-value">--</div>
+        <div class="kpi-sub" id="kpi-total-trades">-- total trades</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Total Share Volume</div>
+        <div class="kpi-value" id="kpi-total-volume">--</div>
+        <div class="kpi-sub" id="kpi-active-symbols">-- active symbols</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Median Market P/E (Basic)</div>
+        <div class="kpi-value" id="kpi-median-pe">--</div>
+        <div class="kpi-sub" id="kpi-pe-coverage">-- symbols with positive P/E</div>
+      </div>
+    </section>
+
+    <!-- Top Movers Overview -->
+    <section class="movers-grid" aria-label="Top Market Movers">
+      <div class="mover-panel">
+        <div class="panel-header">
+          <span class="panel-title">Top Gainers (% Chg)</span>
+          <span class="kpi-label">LTP / %</span>
+        </div>
+        <div class="mini-list" id="list-top-gainers"></div>
+      </div>
+
+      <div class="mover-panel">
+        <div class="panel-header">
+          <span class="panel-title">Top Losers (% Chg)</span>
+          <span class="kpi-label">LTP / %</span>
+        </div>
+        <div class="mini-list" id="list-top-losers"></div>
+      </div>
+
+      <div class="mover-panel">
+        <div class="panel-header">
+          <span class="panel-title">Turnover Leaders (BDT Mn)</span>
+          <span class="kpi-label">Value / LTP</span>
+        </div>
+        <div class="mini-list" id="list-top-value"></div>
+      </div>
+
+      <div class="mover-panel">
+        <div class="panel-header">
+          <span class="panel-title">Lowest P/E (Traded &gt; 0)</span>
+          <span class="kpi-label">P/E / LTP</span>
+        </div>
+        <div class="mini-list" id="list-low-pe"></div>
+      </div>
+    </section>
+
+    <!-- Main Screener + Inspector Split View -->
+    <section class="workspace-grid" aria-label="Stock Screener and Symbol Inspector">
+      <div class="screener-panel">
+        <div class="toolbar">
+          <div class="search-box">
+            <input
+              type="search"
+              id="symbol-search-input"
+              class="search-input"
+              placeholder="Filter symbol (e.g. GP, BATBC, BRACBANK)..."
+              autocomplete="off"
+            />
+          </div>
+
+          <div class="filter-pills" id="screener-filter-group">
+            <button type="button" class="filter-btn active" data-filter="all" id="filter-btn-all">All Symbols</button>
+            <button type="button" class="filter-btn" data-filter="gainers" id="filter-btn-gainers">Gainers</button>
+            <button type="button" class="filter-btn" data-filter="losers" id="filter-btn-losers">Losers</button>
+            <button type="button" class="filter-btn" data-filter="active" id="filter-btn-active">High Turnover</button>
+            <button type="button" class="filter-btn" data-filter="low_pe" id="filter-btn-low-pe">Low P/E (&lt; 15)</button>
+          </div>
+        </div>
+
+        <div class="table-scroll">
+          <table class="market-table" id="screener-table">
+            <thead>
+              <tr>
+                <th data-sort="symbol">Symbol</th>
+                <th data-sort="ltp">LTP</th>
+                <th data-sort="change">Chg</th>
+                <th data-sort="pct_change">% Chg</th>
+                <th data-sort="ycp">YCP</th>
+                <th data-sort="high">High</th>
+                <th data-sort="low">Low</th>
+                <th data-sort="volume">Volume</th>
+                <th data-sort="value">Value (Mn)</th>
+                <th data-sort="trade">Trades</th>
+                <th data-sort="pe_best">P/E</th>
+              </tr>
+            </thead>
+            <tbody id="screener-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right-Hand Symbol Detail & Chart Inspector -->
+      <aside class="inspector-panel" id="symbol-inspector">
+        <div class="inspector-header">
+          <div>
+            <div class="inspector-symbol" id="insp-symbol">--</div>
+            <div class="brand-subtitle" id="insp-updated">Select any stock row</div>
+          </div>
+          <div>
+            <div class="inspector-price" id="insp-ltp">--</div>
+            <div style="text-align: right; margin-top: 2px;">
+              <span class="badge badge-flat" id="insp-change-badge">--</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="range-meter">
+          <div class="range-labels">
+            <span id="insp-low-label">Low: --</span>
+            <span>Day Range</span>
+            <span id="insp-high-label">High: --</span>
+          </div>
+          <div class="range-track">
+            <div class="range-fill" id="insp-range-fill" style="width: 50%"></div>
+          </div>
+        </div>
+
+        <div class="chart-box">
+          <div class="chart-header">
+            <span id="insp-chart-title">Intraday / Recent Price Trend</span>
+            <span id="insp-chart-points">-- pts</span>
+          </div>
+          <svg class="chart-svg" id="insp-price-svg" viewBox="0 0 380 185" preserveAspectRatio="none"></svg>
+        </div>
+
+        <div>
+          <div class="kpi-label" style="margin-bottom: 8px;">Trade &amp; Volume Statistics</div>
+          <div class="metrics-grid">
+            <div class="metric-item"><span class="metric-name">YCP</span><span class="metric-val" id="insp-ycp">--</span></div>
+            <div class="metric-item"><span class="metric-name">Close</span><span class="metric-val" id="insp-close">--</span></div>
+            <div class="metric-item"><span class="metric-name">Volume</span><span class="metric-val" id="insp-volume">--</span></div>
+            <div class="metric-item"><span class="metric-name">Value (Mn)</span><span class="metric-val" id="insp-value">--</span></div>
+            <div class="metric-item"><span class="metric-name">Trades</span><span class="metric-val" id="insp-trade">--</span></div>
+            <div class="metric-item"><span class="metric-name">Avg Trade Val</span><span class="metric-val" id="insp-avg-trade">--</span></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="kpi-label" style="margin-bottom: 8px;">Fundamental P/E Ratios (dse_static)</div>
+          <div class="metrics-grid">
+            <div class="metric-item"><span class="metric-name">P/E 1 (Basic)</span><span class="metric-val" id="insp-pe1">--</span></div>
+            <div class="metric-item"><span class="metric-name">P/E 2 (Diluted)</span><span class="metric-val" id="insp-pe2">--</span></div>
+            <div class="metric-item"><span class="metric-name">P/E 3 (Aud. Basic)</span><span class="metric-val" id="insp-pe3">--</span></div>
+            <div class="metric-item"><span class="metric-name">P/E 4 (Aud. Diluted)</span><span class="metric-val" id="insp-pe4">--</span></div>
+            <div class="metric-item"><span class="metric-name">P/E 5 (Cont. Ops)</span><span class="metric-val" id="insp-pe5">--</span></div>
+            <div class="metric-item"><span class="metric-name">P/E 6 (Trailing)</span><span class="metric-val" id="insp-pe6">--</span></div>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <!-- Optional Direct Supabase Connection Modal -->
+  <div class="modal-backdrop" id="supabase-modal" hidden>
+    <div class="modal-card" role="dialog" aria-labelledby="modal-title">
+      <div class="panel-header">
+        <span class="panel-title" id="modal-title">Direct Supabase Connection (Optional)</span>
+      </div>
+      <p class="brand-subtitle">
+        By default, this dashboard automatically loads the latest Supabase snapshot exported by GitHub Actions.
+        To query your Supabase tables (<code>dse_dynamic</code> &amp; <code>dse_static</code>) directly from your browser, enter your project URL and public <code>anon</code> key below (saved locally in your browser).
+      </p>
+      <div class="form-field">
+        <label for="input-supabase-url">Supabase Project URL</label>
+        <input type="url" id="input-supabase-url" placeholder="https://your-project.supabase.co" />
+      </div>
+      <div class="form-field">
+        <label for="input-supabase-key">Supabase Anon / Public Key</label>
+        <input type="password" id="input-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+        <button type="button" class="btn" id="btn-clear-supabase">Use GitHub Snapshot</button>
+        <button type="button" class="btn" id="btn-close-modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-save-supabase">Connect &amp; Fetch</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
