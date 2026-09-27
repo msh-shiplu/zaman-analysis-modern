@@ -774,6 +774,83 @@ def export_web_data(
         except Exception as e:
             print(f"[Note] Could not update daily_3m.json: {e}")
 
+    # Update 3-month DSE Index Information history (index_history.json)
+    index_hist_file = os.path.join(export_dir, "index_history.json")
+    try:
+        from_d = (datetime.now(dhaka_tz) - timedelta(days=105)).strftime("%Y-%m-%d")
+        to_d = (datetime.now(dhaka_tz) + timedelta(days=1)).strftime("%Y-%m-%d")
+        r_info = requests.get(
+            f"https://dsebd.org/api/live/recent-market-info?from={from_d}&to={to_d}",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=20,
+        ).json()
+        rows_info = r_info.get("rows", [])
+        if rows_info:
+            rows_info.sort(key=lambda x: x["date"], reverse=True)
+            official_totals = {}
+            try:
+                r_mkt = requests.get(
+                    "https://dsebd.org/api/live/market",
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=15,
+                ).json()
+                for t in r_mkt.get("dailyTotals", []):
+                    official_totals[t["date"][:10]] = t
+            except Exception:
+                pass
+
+            # Fallback breadth from existing index_history.json or daily_3m.json
+            existing_breadth = {}
+            if os.path.exists(index_hist_file):
+                try:
+                    with open(index_hist_file, "r", encoding="utf-8") as f:
+                        for old_row in json.load(f):
+                            existing_breadth[old_row["date"]] = {
+                                "adv": old_row.get("adv", 0),
+                                "dec": old_row.get("dec", 0),
+                                "flat": old_row.get("flat", 0),
+                            }
+                except Exception:
+                    pass
+
+            index_history = []
+            for i, row in enumerate(rows_info):
+                d = row["date"][:10]
+                if d < cutoff_date:
+                    continue
+                prev = rows_info[i + 1] if i + 1 < len(rows_info) else None
+                dsex = round(float(row.get("dsex") or 0), 2)
+                dses = round(float(row.get("dses") or 0), 2)
+                ds30 = round(float(row.get("ds30") or 0), 2)
+                dsex_chg = round(float(row.get("dsex") or 0) - float(prev.get("dsex") or 0), 2) if prev else 0.0
+                dses_chg = round(float(row.get("dses") or 0) - float(prev.get("dses") or 0), 2) if prev else 0.0
+                ds30_chg = round(float(row.get("ds30") or 0) - float(prev.get("ds30") or 0), 2) if prev else 0.0
+                val = round(float(row.get("value") or 0), 2)
+                ot = official_totals.get(d)
+                eb = existing_breadth.get(d, {"adv": 0, "dec": 0, "flat": 0})
+                adv = int(ot["advanced"]) if ot and ot.get("advanced") is not None else eb["adv"]
+                dec = int(ot["declined"]) if ot and ot.get("declined") is not None else eb["dec"]
+                flat = int(ot["unchanged"]) if ot and ot.get("unchanged") is not None else eb["flat"]
+                index_history.append({
+                    "date": d,
+                    "dsex": dsex,
+                    "dsex_chg": dsex_chg,
+                    "dses": dses,
+                    "dses_chg": dses_chg,
+                    "ds30": ds30,
+                    "ds30_chg": ds30_chg,
+                    "value": val,
+                    "volume": int(row.get("volume") or 0),
+                    "trades": int(row.get("trades") or 0),
+                    "adv": adv,
+                    "dec": dec,
+                    "flat": flat,
+                })
+            with open(index_hist_file, "w", encoding="utf-8") as f:
+                json.dump(index_history, f, separators=(",", ":"))
+    except Exception as e:
+        print(f"[Note] Could not update index_history.json: {e}")
+
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "intraday_date_bst": intraday_date_bst,

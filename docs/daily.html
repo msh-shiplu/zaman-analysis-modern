@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zaman Analysis — Daily Analysis</title>
+  <meta name="description" content="Dhaka Stock Exchange (DSE) Daily Analysis showing DSE Index Information (DSEX, DSES, DS30, turnover, market breadth) and sector-by-sector daily volume and closing prices." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-group">
+        <div class="brand-mark">DSE</div>
+        <div>
+          <h1 class="brand-title">Zaman Analysis</h1>
+          <div class="brand-subtitle">DSE Index Information &amp; Sector-Separated Daily Analysis (Volume &amp; Price)</div>
+        </div>
+      </div>
+
+      <nav class="header-nav" aria-label="Primary Navigation">
+        <a href="./index.html" class="nav-link" id="nav-screener">Market &amp; P/E Screener</a>
+        <a href="./intraday.html" class="nav-link" id="nav-intraday">Today's Half-Hourly Data</a>
+        <a href="./hourly.html" class="nav-link" id="nav-hourly">Hourly Analysis</a>
+        <a href="./daily.html" class="nav-link active" id="nav-daily">Daily Analysis</a>
+        <a href="./detail.html" class="nav-link" id="nav-detail">Detail Analysis</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="timestamp-badge" id="daily-session-badge">
+          <span class="status-dot"></span>
+          <span id="daily-session-text">Loading daily data...</span>
+        </div>
+        <button type="button" class="btn" id="btn-export-daily-csv">Export CSV</button>
+        <button type="button" class="btn" id="btn-theme-toggle">Dark Mode</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Filter & Display Controls Bar -->
+    <section class="hourly-controls-bar" aria-label="Daily Analysis Controls">
+      <div class="hourly-controls-group">
+        <div class="search-box" style="min-width: 220px;">
+          <input
+            type="search"
+            id="daily-search-input"
+            class="search-input"
+            placeholder="Search stock (e.g. ABBANK, ACI, GP)..."
+            autocomplete="off"
+          />
+        </div>
+
+        <label for="daily-sector-select" class="kpi-label">Industry:</label>
+        <select id="daily-sector-select" class="select-control">
+          <option value="all">All Industries / Sectors</option>
+        </select>
+
+        <label for="daily-days-select" class="kpi-label">Trading Days:</label>
+        <select id="daily-days-select" class="select-control">
+          <option value="10" selected>Last 10 Trading Days</option>
+          <option value="15">Last 15 Trading Days</option>
+          <option value="20">Last 20 Trading Days</option>
+          <option value="30">Last 30 Trading Days</option>
+          <option value="63">All 3 Months (63 Days)</option>
+        </select>
+      </div>
+
+      <div class="hourly-controls-group">
+        <div class="hourly-legend-strip" title="Each stock cell displays 2 stacked values from top to bottom">
+          <span><strong>Cell Format:</strong> 1. Volume &bull; 2. Closing Price / LTP</span>
+        </div>
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; user-select: none;">
+          <input type="checkbox" id="chk-daily-color" />
+          <span>Color Price Changes</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- 1. Top Section: DSE Index Information -->
+    <section class="industry-section" id="dse-index-section" aria-label="DSE Index Information">
+      <h2 class="industry-heading" style="margin-top: 6px;">DSE Index Information</h2>
+      <div class="hourly-table-wrap">
+        <table class="hourly-sector-table" id="dse-index-table">
+          <thead id="dse-index-thead"></thead>
+          <tbody id="dse-index-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 2. Bottom Section: Sector-Separated Daily Stock Tables -->
+    <section id="daily-sectors-container" aria-label="Sector Daily Analysis Tables"></section>
+  </main>
+
+  <script src="./daily.js"></script>
+</body>
+</html>
