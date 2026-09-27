@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Today's Half-Hourly DSE Data — Zaman Analysis</title>
+  <meta name="description" content="Dhaka Stock Exchange (DSE) half-hourly intraday price matrix, 30-minute interval volume and turnover deltas, and time-slot snapshots." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-group">
+        <div class="brand-mark">DSE</div>
+        <div>
+          <h1 class="brand-title">Today's Half-Hourly DSE Data</h1>
+          <div class="brand-subtitle">30-Minute Interval Price Progression, Volume Spikes &amp; Time-Slot Snapshots</div>
+        </div>
+      </div>
+
+      <nav class="header-nav" aria-label="Primary Navigation">
+        <a href="./index.html" class="nav-link" id="nav-screener">Market &amp; P/E Screener</a>
+        <a href="./intraday.html" class="nav-link active" id="nav-intraday">Today's Half-Hourly Data</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="timestamp-badge" id="intraday-session-badge">
+          <span class="status-dot"></span>
+          <span id="intraday-session-text">Loading session...</span>
+        </div>
+        <button type="button" class="btn" id="btn-export-intraday-csv">Export CSV</button>
+        <button type="button" class="btn" id="btn-theme-toggle">Light Mode</button>
+        <button type="button" class="btn btn-primary" id="btn-supabase-config">Supabase Live</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Session KPI Strip -->
+    <section class="kpi-strip" aria-label="Today's Intraday Session Metrics">
+      <div class="kpi-card">
+        <div class="kpi-label">Session Date (Dhaka BST)</div>
+        <div class="kpi-value" id="kpi-session-date">--</div>
+        <div class="kpi-sub" id="kpi-slot-count">-- half-hourly snapshots recorded</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Latest 30m Interval Turnover (Δ)</div>
+        <div class="kpi-value" id="kpi-latest-delta-val">--</div>
+        <div class="kpi-sub" id="kpi-latest-delta-trades">-- trades in latest slot</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Latest 30m Interval Volume (Δ)</div>
+        <div class="kpi-value" id="kpi-latest-delta-vol">--</div>
+        <div class="kpi-sub" id="kpi-cum-vol">Cumulative: -- shares</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Selected Slot Breadth</div>
+        <div class="kpi-value" id="kpi-slot-breadth">-- / -- / --</div>
+        <div class="kpi-sub">
+          <span class="text-up" id="kpi-slot-adv">0 Adv</span>
+          <span class="text-flat" id="kpi-slot-flat">0 Unch</span>
+          <span class="text-down" id="kpi-slot-dec">0 Dec</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Half-Hourly Time-Slot Selector Strip -->
+    <section aria-label="Half-Hourly Time Slots">
+      <div class="kpi-label" style="margin-bottom: 8px;">Select View: Side-by-Side Matrix or Individual Half-Hourly Snapshot (BST)</div>
+      <div class="slot-strip" id="slot-strip"></div>
+    </section>
+
+    <!-- Main Workspace: Half-Hourly Table + Symbol Interval Log -->
+    <section class="workspace-grid" aria-label="Half-Hourly Data Table and Symbol Breakdown">
+      <div class="screener-panel">
+        <div class="toolbar">
+          <div class="search-box">
+            <input
+              type="search"
+              id="intraday-search-input"
+              class="search-input"
+              placeholder="Search symbol (e.g. GP, BATBC, BRACBANK)..."
+              autocomplete="off"
+            />
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <label for="matrix-metric-select" class="kpi-label" id="matrix-metric-label">Matrix Cell Metric:</label>
+            <select id="matrix-metric-select" class="select-control">
+              <option value="ltp">LTP (Price &amp; Slot Δ)</option>
+              <option value="delta_vol">30m Interval Volume (Δ Vol)</option>
+              <option value="delta_val">30m Interval Turnover (Δ Value Mn)</option>
+              <option value="vol">Cumulative Volume</option>
+              <option value="val">Cumulative Value (BDT Mn)</option>
+              <option value="trd">Cumulative Trades</option>
+            </select>
+
+            <div class="filter-pills" id="intraday-filter-group">
+              <button type="button" class="filter-btn active" data-filter="all" id="intraday-filter-all">All</button>
+              <button type="button" class="filter-btn" data-filter="gainers" id="intraday-filter-gainers">Day Gainers</button>
+              <button type="button" class="filter-btn" data-filter="losers" id="intraday-filter-losers">Day Losers</button>
+              <button type="button" class="filter-btn" data-filter="slot_up" id="intraday-filter-slot-up">Slot Rising</button>
+              <button type="button" class="filter-btn" data-filter="active" id="intraday-filter-active">Top Turnover</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-scroll">
+          <table class="market-table" id="intraday-table">
+            <thead id="intraday-thead"></thead>
+            <tbody id="intraday-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right-Hand Symbol Half-Hourly Breakdown -->
+      <aside class="inspector-panel" id="intraday-inspector">
+        <div class="inspector-header">
+          <div>
+            <div class="inspector-symbol" id="intra-insp-symbol">--</div>
+            <div class="brand-subtitle" id="intra-insp-sub">Half-hourly progression today</div>
+          </div>
+          <div>
+            <div class="inspector-price" id="intra-insp-ltp">--</div>
+            <div style="text-align: right; margin-top: 2px;">
+              <span class="badge badge-flat" id="intra-insp-badge">--</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-box">
+          <div class="chart-header">
+            <span>Half-Hourly Price &amp; 30m Volume</span>
+            <span id="intra-insp-points">-- slots</span>
+          </div>
+          <svg class="chart-svg" id="intra-insp-svg" viewBox="0 0 380 185" preserveAspectRatio="none"></svg>
+        </div>
+
+        <div>
+          <div class="kpi-label" style="margin-bottom: 8px;">Today's Half-Hourly Log for Selected Symbol</div>
+          <div class="table-scroll" style="max-height: 310px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+            <table class="market-table">
+              <thead>
+                <tr>
+                  <th>Time (BST)</th>
+                  <th>LTP</th>
+                  <th>Slot Δ</th>
+                  <th>30m Vol</th>
+                  <th>30m Val</th>
+                  <th>Cum. Vol</th>
+                </tr>
+              </thead>
+              <tbody id="intra-symbol-log-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <!-- Optional Direct Supabase Connection Modal -->
+  <div class="modal-backdrop" id="supabase-modal" hidden>
+    <div class="modal-card" role="dialog" aria-labelledby="modal-title">
+      <div class="panel-header">
+        <span class="panel-title" id="modal-title">Direct Supabase Connection (Optional)</span>
+      </div>
+      <p class="brand-subtitle">
+        By default, this page loads today's half-hourly snapshots exported by GitHub Actions.
+        You can also connect directly to your Supabase project using your public <code>anon</code> key.
+      </p>
+      <div class="form-field">
+        <label for="input-supabase-url">Supabase Project URL</label>
+        <input type="url" id="input-supabase-url" placeholder="https://your-project.supabase.co" />
+      </div>
+      <div class="form-field">
+        <label for="input-supabase-key">Supabase Anon / Public Key</label>
+        <input type="password" id="input-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+        <button type="button" class="btn" id="btn-clear-supabase">Use GitHub Snapshot</button>
+        <button type="button" class="btn" id="btn-close-modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-save-supabase">Connect &amp; Fetch</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./intraday.js"></script>
+</body>
+</html>

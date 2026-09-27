@@ -434,42 +434,113 @@ def export_web_data(
 ):
     """
     Exports a consolidated JSON snapshot (`market_data.json`) for the GitHub Pages web dashboard.
-    Merges the latest dynamic market data, static P/E fundamentals, and recent intraday history from Supabase.
+    Merges the latest dynamic market data, static P/E fundamentals, and today's half-hourly intraday history from Supabase.
     """
+    from datetime import timedelta
+    dhaka_tz = timezone(timedelta(hours=6))
+
     os.makedirs(export_dir, exist_ok=True)
     history_by_symbol: Dict[str, List[Dict[str, Any]]] = {}
     db_dynamic_latest: List[Dict[str, Any]] = []
     db_static_latest: List[Dict[str, Any]] = []
+    intraday_date_bst: Optional[str] = None
+    slot_map: Dict[str, Dict[str, Any]] = {}
 
     if supabase is not None:
         try:
-            # Fetch up to 4000 recent dynamic records from Supabase (roughly the last 10 snapshots across 395 symbols)
-            res_dyn = (
-                supabase.table("dse_dynamic")
-                .select("symbol,ltp,high,low,close,ycp,change,trade,value,volume,timestamp")
-                .order("timestamp", desc=True)
-                .limit(4000)
-                .execute()
-            )
-            rows_dyn = res_dyn.data or []
+            # Paginate up to 5,000 rows (1,000 per page due to PostgREST max-rows limit)
+            # to capture all ~10 half-hourly runs (~3,950 rows) of the latest trading day
+            rows_dyn: List[Dict[str, Any]] = []
+            page_size = 1000
+            for page in range(5):
+                start = page * page_size
+                end = start + page_size - 1
+                res_page = (
+                    supabase.table("dse_dynamic")
+                    .select("symbol,ltp,high,low,close,ycp,change,trade,value,volume,timestamp")
+                    .order("timestamp", desc=True)
+                    .range(start, end)
+                    .execute()
+                )
+                page_data = res_page.data or []
+                if not page_data:
+                    break
+                rows_dyn.extend(page_data)
+                if len(page_data) < page_size:
+                    break
+
             seen_latest = set()
             for r in rows_dyn:
                 sym = r.get("symbol")
-                if not sym:
+                ts_raw = r.get("timestamp")
+                if not sym or not ts_raw:
                     continue
+
+                # Determine BST date of this row
+                try:
+                    dt_utc = datetime.fromisoformat(str(ts_raw).replace("Z", "+00:00"))
+                    dt_bst = dt_utc.astimezone(dhaka_tz)
+                    row_date_bst = dt_bst.strftime("%Y-%m-%d")
+                    # Normalize slot key to minute precision (YYYY-MM-DDTHH:MM) so all 395 rows in one batch share a slot key
+                    slot_key = dt_bst.strftime("%Y-%m-%d %H:%M")
+                except Exception:
+                    row_date_bst = str(ts_raw)[:10]
+                    slot_key = str(ts_raw)[:16]
+
+                if intraday_date_bst is None:
+                    intraday_date_bst = row_date_bst
+
                 if sym not in seen_latest:
                     seen_latest.add(sym)
                     db_dynamic_latest.append(r)
-                history_by_symbol.setdefault(sym, []).append({
-                    "t": r.get("timestamp"),
-                    "ltp": r.get("ltp"),
-                    "v": r.get("volume"),
-                    "val": r.get("value"),
-                    "chg": r.get("change"),
-                })
-            # Sort each symbol's history chronologically
-            for sym in history_by_symbol:
-                history_by_symbol[sym].reverse()
+
+                # Keep all half-hourly points from the latest trading day (in BST)
+                if row_date_bst == intraday_date_bst:
+                    history_by_symbol.setdefault(sym, []).append({
+                        "t": ts_raw,
+                        "slot": slot_key,
+                        "ltp": r.get("ltp"),
+                        "high": r.get("high"),
+                        "low": r.get("low"),
+                        "ycp": r.get("ycp"),
+                        "chg": r.get("change"),
+                        "trd": r.get("trade"),
+                        "val": r.get("value"),
+                        "v": r.get("volume"),
+                    })
+
+                    slot_info = slot_map.setdefault(slot_key, {
+                        "slot": slot_key,
+                        "timestamp": ts_raw,
+                        "symbols": 0,
+                        "adv": 0,
+                        "dec": 0,
+                        "flat": 0,
+                        "total_value": 0.0,
+                        "total_volume": 0,
+                        "total_trades": 0,
+                    })
+                    slot_info["symbols"] += 1
+                    chg_val = r.get("change")
+                    ltp_val = r.get("ltp")
+                    if ltp_val and float(ltp_val) > 0:
+                        if chg_val is not None and float(chg_val) > 0:
+                            slot_info["adv"] += 1
+                        elif chg_val is not None and float(chg_val) < 0:
+                            slot_info["dec"] += 1
+                        else:
+                            slot_info["flat"] += 1
+                    slot_info["total_value"] = round(slot_info["total_value"] + float(r.get("value") or 0), 3)
+                    slot_info["total_volume"] += int(float(r.get("volume") or 0))
+                    slot_info["total_trades"] += int(float(r.get("trade") or 0))
+
+            # Deduplicate per (symbol, slot) and sort each symbol's history chronologically
+            for sym, pts in history_by_symbol.items():
+                dedup = {}
+                for p in reversed(pts):
+                    dedup[p["slot"]] = p
+                history_by_symbol[sym] = [dedup[k] for k in sorted(dedup.keys())]
+
         except Exception as e:
             print(f"[Note] Could not query dse_dynamic history from Supabase: {e}")
 
@@ -522,17 +593,34 @@ def export_web_data(
     # Ensure history_by_symbol has at least the current point for each symbol
     for r in final_dynamic:
         sym = r.get("symbol")
+        ts_raw = r.get("timestamp")
         if sym and sym not in history_by_symbol:
+            try:
+                dt_bst = datetime.fromisoformat(str(ts_raw).replace("Z", "+00:00")).astimezone(dhaka_tz)
+                slot_key = dt_bst.strftime("%Y-%m-%d %H:%M")
+                if intraday_date_bst is None:
+                    intraday_date_bst = dt_bst.strftime("%Y-%m-%d")
+            except Exception:
+                slot_key = str(ts_raw)[:16]
             history_by_symbol[sym] = [{
-                "t": r.get("timestamp"),
+                "t": ts_raw,
+                "slot": slot_key,
                 "ltp": r.get("ltp"),
-                "v": r.get("volume"),
-                "val": r.get("value"),
+                "high": r.get("high"),
+                "low": r.get("low"),
+                "ycp": r.get("ycp"),
                 "chg": r.get("change"),
+                "trd": r.get("trade"),
+                "val": r.get("value"),
+                "v": r.get("volume"),
             }]
+
+    intraday_slots = [slot_map[k] for k in sorted(slot_map.keys())]
 
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "intraday_date_bst": intraday_date_bst,
+        "intraday_slots": intraday_slots,
         "dynamic_count": len(final_dynamic),
         "static_count": len(final_static),
         "dynamic": final_dynamic,
@@ -543,7 +631,10 @@ def export_web_data(
     target_file = os.path.join(export_dir, "market_data.json")
     with open(target_file, "w", encoding="utf-8") as f:
         json.dump(payload, f, separators=(",", ":"))
-    print(f"Exported dashboard dataset to {target_file} ({len(final_dynamic)} dynamic, {len(final_static)} static symbols).")
+    print(
+        f"Exported dashboard dataset to {target_file} "
+        f"({len(final_dynamic)} dynamic, {len(final_static)} static symbols, {len(intraday_slots)} intraday slots)."
+    )
     return target_file
 
 
