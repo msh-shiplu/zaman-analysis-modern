@@ -81,7 +81,7 @@
     for (const sym of allSymbolKeys) {
       const pts = history[sym] || [];
       for (const p of pts) {
-        const sKey = p.slot || toDhakaSlotKey(p.t);
+        const sKey = p.t ? toDhakaSlotKey(p.t) : p.slot;
         if (!sKey) continue;
         p._slotKey = sKey;
         if (!slotAgg[sKey]) {

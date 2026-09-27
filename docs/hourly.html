@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zaman Analysis — Hourly Analysis</title>
+  <meta name="description" content="Dhaka Stock Exchange (DSE) sector-by-sector half-hourly analysis showing cumulative volume, LTP, and change from previous window at 10:00 AM, 10:30 AM, 11:00 AM, and onward." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-group">
+        <div class="brand-mark">DSE</div>
+        <div>
+          <h1 class="brand-title">Zaman Analysis</h1>
+          <div class="brand-subtitle">Sector-Separated Half-Hourly Analysis (Volume, LTP &amp; Window Change)</div>
+        </div>
+      </div>
+
+      <nav class="header-nav" aria-label="Primary Navigation">
+        <a href="./index.html" class="nav-link" id="nav-screener">Market &amp; P/E Screener</a>
+        <a href="./intraday.html" class="nav-link" id="nav-intraday">Today's Half-Hourly Data</a>
+        <a href="./hourly.html" class="nav-link active" id="nav-hourly">Hourly Analysis</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="timestamp-badge" id="hourly-session-badge">
+          <span class="status-dot"></span>
+          <span id="hourly-session-text">Loading session...</span>
+        </div>
+        <button type="button" class="btn" id="btn-export-hourly-csv">Export CSV</button>
+        <button type="button" class="btn" id="btn-theme-toggle">Dark Mode</button>
+        <button type="button" class="btn btn-primary" id="btn-supabase-config">Supabase Live</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Filter & Display Controls Bar -->
+    <section class="hourly-controls-bar" aria-label="Hourly Analysis Controls">
+      <div class="hourly-controls-group">
+        <div class="search-box" style="min-width: 220px;">
+          <input
+            type="search"
+            id="hourly-search-input"
+            class="search-input"
+            placeholder="Search stock (e.g. ACI, BXPHARMA, GP)..."
+            autocomplete="off"
+          />
+        </div>
+
+        <label for="sector-filter-select" class="kpi-label">Industry:</label>
+        <select id="sector-filter-select" class="select-control">
+          <option value="all">All Industries / Sectors</option>
+        </select>
+
+        <label for="window-mode-select" class="kpi-label">Columns:</label>
+        <select id="window-mode-select" class="select-control">
+          <option value="standard">10:00 AM – 2:30 PM (30m Windows)</option>
+          <option value="populated">Populated 30m Windows Only</option>
+          <option value="raw">All Recorded Snapshots</option>
+        </select>
+
+        <label for="delta-metric-select" class="kpi-label">3rd Value:</label>
+        <select id="delta-metric-select" class="select-control">
+          <option value="vol">Δ Volume (from Prev Window)</option>
+          <option value="val">Δ Value Mn (from Prev Window)</option>
+          <option value="ltp">Δ LTP Price (from Prev Window)</option>
+        </select>
+      </div>
+
+      <div class="hourly-controls-group">
+        <div class="hourly-legend-strip" title="Each cell displays 3 stacked values from top to bottom">
+          <span><strong>Cell Format:</strong> 1. Volume &bull; 2. LTP &bull; 3. <span id="legend-third-label">Δ Volume from prev window</span></span>
+        </div>
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; user-select: none;">
+          <input type="checkbox" id="chk-color-code" />
+          <span>Color LTP Changes</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Sector-Separated Tables Container -->
+    <section id="hourly-sectors-container" aria-label="Sector Hourly Analysis Tables"></section>
+  </main>
+
+  <!-- Optional Direct Supabase Connection Modal -->
+  <div class="modal-backdrop" id="supabase-modal" hidden>
+    <div class="modal-card" role="dialog" aria-labelledby="modal-title">
+      <div class="panel-header">
+        <span class="panel-title" id="modal-title">Direct Supabase Connection (Optional)</span>
+      </div>
+      <p class="brand-subtitle">
+        By default, this page loads today's half-hourly snapshots exported by GitHub Actions.
+        You can also connect directly to your Supabase project using your public <code>anon</code> key.
+      </p>
+      <div class="form-field">
+        <label for="input-supabase-url">Supabase Project URL</label>
+        <input type="url" id="input-supabase-url" placeholder="https://your-project.supabase.co" />
+      </div>
+      <div class="form-field">
+        <label for="input-supabase-key">Supabase Anon / Public Key</label>
+        <input type="password" id="input-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+        <button type="button" class="btn" id="btn-clear-supabase">Use GitHub Snapshot</button>
+        <button type="button" class="btn" id="btn-close-modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-save-supabase">Connect &amp; Fetch</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./hourly.js"></script>
+</body>
+</html>

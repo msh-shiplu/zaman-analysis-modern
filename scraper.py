@@ -426,6 +426,84 @@ def fetch_and_store_static(supabase: Optional[Client] = None, dry_run: bool = Fa
         raise
 
 
+SECTOR_NAME_MAP: Dict[str, str] = {
+    "Bank": "Bank",
+    "Cement": "Cement",
+    "Ceramic": "Ceramics Sector",
+    "CorpBond": "Corporate Bond",
+    "Debenture": "Debenture",
+    "Engineering": "Engineering",
+    "Financial In": "Financial Institutions",
+    "FoodAllied": "Food & Allied",
+    "FuelPower": "Fuel & Power",
+    "TBond": "G-SEC (T.Bond)",
+    "Insurance": "Insurance",
+    "IT": "IT Sector",
+    "Jute": "Jute",
+    "Misc": "Miscellaneous",
+    "MutFund": "Mutual Funds",
+    "PaperPrint": "Paper & Printing",
+    "PharmaChem": "Pharmaceuticals & Chemicals",
+    "ServRealEst": "Services & Real Estate",
+    "Tannery": "Tannery Industries",
+    "Telecom": "Telecommunication",
+    "Textile": "Textile",
+    "TravelLeisur": "Travel & Leisure",
+}
+
+
+def parse_iso_to_bst(ts_raw: Any, dhaka_tz: timezone):
+    """Safely parses ISO timestamps (even with 1..5 fractional digits on Python 3.10) into Dhaka BST."""
+    s = str(ts_raw).strip().replace("Z", "+00:00")
+    s = re.sub(r"\.(\d+)", lambda m: "." + m.group(1).ljust(6, "0")[:6], s)
+    dt_utc = datetime.fromisoformat(s)
+    if dt_utc.tzinfo is None:
+        dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+    return dt_utc.astimezone(dhaka_tz)
+
+
+def fetch_symbol_metadata(export_dir: str) -> Dict[str, Dict[str, str]]:
+    """Loads cached symbol_meta.json and refreshes sector/category metadata from DSE API if reachable."""
+    meta_file = os.path.join(export_dir, "symbol_meta.json")
+    meta: Dict[str, Dict[str, str]] = {}
+    if os.path.exists(meta_file):
+        try:
+            with open(meta_file, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+        except Exception:
+            meta = {}
+
+    try:
+        resp = httpx.get("https://dsebd.org/api/live/prices", timeout=15.0)
+        if resp.status_code == 200:
+            data = resp.json()
+            cols = data.get("cols", [])
+            rows = data.get("rows", [])
+            if "code" in cols and "sector" in cols and "category" in cols:
+                idx_code = cols.index("code")
+                idx_sec = cols.index("sector")
+                idx_cat = cols.index("category")
+                idx_brd = cols.index("board") if "board" in cols else -1
+                for row in rows:
+                    code = str(row[idx_code] or "").strip()
+                    if not code:
+                        continue
+                    sec_raw = str(row[idx_sec] or "").strip()
+                    cat = str(row[idx_cat] or "").strip()
+                    board = str(row[idx_brd] or "").strip() if idx_brd >= 0 else ""
+                    meta[code] = {
+                        "sector": SECTOR_NAME_MAP.get(sec_raw, sec_raw or "Others"),
+                        "category": cat,
+                        "board": board,
+                    }
+                with open(meta_file, "w", encoding="utf-8") as f:
+                    json.dump(meta, f, separators=(",", ":"), sort_keys=True)
+    except Exception as e:
+        print(f"[Note] Using cached symbol metadata ({len(meta)} symbols): {e}")
+
+    return meta
+
+
 def export_web_data(
     export_dir: str,
     supabase: Optional[Client] = None,
@@ -434,12 +512,14 @@ def export_web_data(
 ):
     """
     Exports a consolidated JSON snapshot (`market_data.json`) for the GitHub Pages web dashboard.
-    Merges the latest dynamic market data, static P/E fundamentals, and today's half-hourly intraday history from Supabase.
+    Merges the latest dynamic market data, static P/E fundamentals, sector/category metadata,
+    and today's half-hourly intraday history from Supabase.
     """
     from datetime import timedelta
     dhaka_tz = timezone(timedelta(hours=6))
 
     os.makedirs(export_dir, exist_ok=True)
+    symbol_meta = fetch_symbol_metadata(export_dir)
     history_by_symbol: Dict[str, List[Dict[str, Any]]] = {}
     db_dynamic_latest: List[Dict[str, Any]] = []
     db_static_latest: List[Dict[str, Any]] = []
@@ -478,14 +558,12 @@ def export_web_data(
 
                 # Determine BST date of this row
                 try:
-                    dt_utc = datetime.fromisoformat(str(ts_raw).replace("Z", "+00:00"))
-                    dt_bst = dt_utc.astimezone(dhaka_tz)
+                    dt_bst = parse_iso_to_bst(ts_raw, dhaka_tz)
                     row_date_bst = dt_bst.strftime("%Y-%m-%d")
-                    # Normalize slot key to minute precision (YYYY-MM-DDTHH:MM) so all 395 rows in one batch share a slot key
                     slot_key = dt_bst.strftime("%Y-%m-%d %H:%M")
                 except Exception:
                     row_date_bst = str(ts_raw)[:10]
-                    slot_key = str(ts_raw)[:16]
+                    slot_key = str(ts_raw)[:16].replace("T", " ")
 
                 if intraday_date_bst is None:
                     intraday_date_bst = row_date_bst
@@ -554,8 +632,11 @@ def export_web_data(
                     continue
                 seen_stat.add(sym)
                 info = r.get("info") if isinstance(r.get("info"), dict) else {}
+                sm = symbol_meta.get(sym, {})
                 flat_stat = {
                     "symbol": sym,
+                    "sector": info.get("sector") or sm.get("sector") or "Others",
+                    "category": info.get("category") or sm.get("category") or "",
                     "close": r.get("close", info.get("close")),
                     "ycp": r.get("ycp", info.get("ycp")),
                     "pe_1": r.get("pe_1", info.get("pe_1")),
@@ -590,18 +671,27 @@ def export_web_data(
         except Exception as e:
             print(f"[Note] Fallback static scrape skipped: {e}")
 
+    # Enrich final_static with sector/category if missing
+    for s_row in final_static:
+        sym = s_row.get("symbol")
+        if sym and sym in symbol_meta:
+            if not s_row.get("sector"):
+                s_row["sector"] = symbol_meta[sym].get("sector", "Others")
+            if not s_row.get("category"):
+                s_row["category"] = symbol_meta[sym].get("category", "")
+
     # Ensure history_by_symbol has at least the current point for each symbol
     for r in final_dynamic:
         sym = r.get("symbol")
         ts_raw = r.get("timestamp")
         if sym and sym not in history_by_symbol:
             try:
-                dt_bst = datetime.fromisoformat(str(ts_raw).replace("Z", "+00:00")).astimezone(dhaka_tz)
+                dt_bst = parse_iso_to_bst(ts_raw, dhaka_tz)
                 slot_key = dt_bst.strftime("%Y-%m-%d %H:%M")
                 if intraday_date_bst is None:
                     intraday_date_bst = dt_bst.strftime("%Y-%m-%d")
             except Exception:
-                slot_key = str(ts_raw)[:16]
+                slot_key = str(ts_raw)[:16].replace("T", " ")
             history_by_symbol[sym] = [{
                 "t": ts_raw,
                 "slot": slot_key,
@@ -625,6 +715,7 @@ def export_web_data(
         "static_count": len(final_static),
         "dynamic": final_dynamic,
         "static": final_static,
+        "symbol_meta": symbol_meta,
         "history": history_by_symbol,
     }
 
