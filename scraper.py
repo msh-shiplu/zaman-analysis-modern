@@ -707,6 +707,73 @@ def export_web_data(
 
     intraday_slots = [slot_map[k] for k in sorted(slot_map.keys())]
 
+    # Update rolling 3-month half-hourly archive (hourly_3m.json) and daily archive (daily_3m.json)
+    cutoff_date = (datetime.now(dhaka_tz) - timedelta(days=92)).strftime("%Y-%m-%d")
+    hourly_3m_file = os.path.join(export_dir, "hourly_3m.json")
+    hourly_3m: Dict[str, Dict[str, Dict[str, List[Any]]]] = {}
+    if os.path.exists(hourly_3m_file):
+        try:
+            with open(hourly_3m_file, "r", encoding="utf-8") as f:
+                hourly_3m = json.load(f)
+        except Exception:
+            hourly_3m = {}
+
+    if intraday_date_bst:
+        for sym, pts in history_by_symbol.items():
+            sym_dates = hourly_3m.setdefault(sym, {})
+            # Prune dates older than 92 days
+            for old_d in [d for d in sym_dates.keys() if d < cutoff_date]:
+                sym_dates.pop(old_d, None)
+            day_wins = sym_dates.setdefault(intraday_date_bst, {})
+            best_dist: Dict[str, int] = {}
+            for p in pts:
+                s_key = p.get("slot") or ""
+                if not s_key.startswith(intraday_date_bst) or " " not in s_key:
+                    continue
+                try:
+                    hh, mm = [int(x) for x in s_key.split(" ")[1].split(":")]
+                    mins = hh * 60 + mm
+                except Exception:
+                    continue
+                v_int = int(float(p.get("v") or 0))
+                ltp_f = round(float(p.get("ltp") or 0), 2)
+                val_f = round(float(p.get("val") or 0), 3)
+                if 580 <= mins <= 885:
+                    snapped = min(870, max(600, int(round(mins / 30.0) * 30)))
+                    w_str = str(snapped)
+                    dist = abs(mins - snapped)
+                    if w_str not in best_dist or dist <= best_dist[w_str]:
+                        day_wins[w_str] = [v_int, ltp_f, val_f]
+                        best_dist[w_str] = dist
+                elif mins > 885 and "870" not in day_wins:
+                    day_wins["870"] = [v_int, ltp_f, val_f]
+
+        try:
+            with open(hourly_3m_file, "w", encoding="utf-8") as f:
+                json.dump(hourly_3m, f, separators=(",", ":"), sort_keys=True)
+        except Exception as e:
+            print(f"[Note] Could not write hourly_3m.json: {e}")
+
+    daily_3m_file = os.path.join(export_dir, "daily_3m.json")
+    if intraday_date_bst and os.path.exists(daily_3m_file):
+        try:
+            with open(daily_3m_file, "r", encoding="utf-8") as f:
+                daily_3m = json.load(f)
+            for r in final_dynamic:
+                sym = r.get("symbol")
+                if not sym:
+                    continue
+                vol = int(float(r.get("volume") or 0))
+                cp = round(float(r.get("close") or r.get("ltp") or r.get("ycp") or 0), 2)
+                existing = [row for row in daily_3m.get(sym, []) if row[0] >= cutoff_date and row[0] != intraday_date_bst]
+                existing.insert(0, [intraday_date_bst, vol, cp])
+                existing.sort(key=lambda x: x[0], reverse=True)
+                daily_3m[sym] = existing
+            with open(daily_3m_file, "w", encoding="utf-8") as f:
+                json.dump(daily_3m, f, separators=(",", ":"), sort_keys=True)
+        except Exception as e:
+            print(f"[Note] Could not update daily_3m.json: {e}")
+
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "intraday_date_bst": intraday_date_bst,

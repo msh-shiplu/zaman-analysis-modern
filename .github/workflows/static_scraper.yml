@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -41,6 +41,13 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python scraper.py --type static --export-web docs/data
+
+      - name: Persist Rolling 3-Month Archive
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/data/hourly_3m.json docs/data/daily_3m.json docs/data/symbol_meta.json || true
+          git diff --cached --quiet || (git commit -m "Update rolling 3-month hourly and daily archive [skip ci]" && git push origin HEAD:main)
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

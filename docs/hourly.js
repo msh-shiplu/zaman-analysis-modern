@@ -260,9 +260,9 @@
     const pe2Str = stock.pe2 !== null && stock.pe2 !== undefined && Number(stock.pe2) > 0
       ? fmtCompact(stock.pe2, 2)
       : "0";
-    const dseUrl = `https://www.dsebd.org/displayCompany.php?name=${encodeURIComponent(stock.symbol)}`;
+    const detailUrl = `./detail.html?symbol=${encodeURIComponent(stock.symbol)}`;
     const catHtml = stock.category ? `<sub class="stock-cat-sub">${stock.category}</sub>` : "";
-    return `<sub class="stock-pe-sub">${pe1Str}/${pe2Str}</sub><a href="${dseUrl}" target="_blank" rel="noopener noreferrer" class="stock-code-link">${stock.symbol}</a>${catHtml}`;
+    return `<sub class="stock-pe-sub">${pe1Str}/${pe2Str}</sub><a href="${detailUrl}" class="stock-code-link">${stock.symbol}</a>${catHtml}`;
   }
 
   function renderHourlyTables() {

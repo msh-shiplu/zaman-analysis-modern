@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zaman Analysis — Detail Analysis</title>
+  <meta name="description" content="Complete Dhaka Stock Exchange (DSE) company details, shareholding proportions, P/E breakdown, and 3-month historical half-hourly trading analysis." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-group">
+        <div class="brand-mark">DSE</div>
+        <div>
+          <h1 class="brand-title">Zaman Analysis</h1>
+          <div class="brand-subtitle">Company Fundamentals, Shareholding Breakdown &amp; 3-Month Hourly Analysis</div>
+        </div>
+      </div>
+
+      <nav class="header-nav" aria-label="Primary Navigation">
+        <a href="./index.html" class="nav-link" id="nav-screener">Market &amp; P/E Screener</a>
+        <a href="./intraday.html" class="nav-link" id="nav-intraday">Today's Half-Hourly Data</a>
+        <a href="./hourly.html" class="nav-link" id="nav-hourly">Hourly Analysis</a>
+        <a href="./detail.html" class="nav-link active" id="nav-detail">Detail Analysis</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="timestamp-badge" id="detail-status-badge">
+          <span class="status-dot"></span>
+          <span id="detail-status-text">Loading company details...</span>
+        </div>
+        <button type="button" class="btn" id="btn-export-detail-csv">Export CSV</button>
+        <button type="button" class="btn" id="btn-theme-toggle">Dark Mode</button>
+        <button type="button" class="btn btn-primary" id="btn-supabase-config">Supabase Live</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Company Selector & Controls Bar -->
+    <section class="hourly-controls-bar" aria-label="Detail Analysis Controls">
+      <div class="hourly-controls-group">
+        <a href="./hourly.html" class="btn" style="text-decoration: none;">&larr; Back to Hourly Analysis</a>
+
+        <label for="detail-company-select" class="kpi-label">Company:</label>
+        <select id="detail-company-select" class="select-control" style="min-width: 260px;"></select>
+
+        <label for="detail-delta-select" class="kpi-label">3rd Value:</label>
+        <select id="detail-delta-select" class="select-control">
+          <option value="vol">Δ Volume (from Prev Window)</option>
+          <option value="val">Δ Value Mn (from Prev Window)</option>
+          <option value="ltp">Δ LTP Price (from Prev Window)</option>
+        </select>
+      </div>
+
+      <div class="hourly-controls-group">
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; user-select: none;">
+          <input type="checkbox" id="chk-detail-color" />
+          <span>Color LTP Changes</span>
+        </label>
+        <a href="https://www.dsebd.org/" target="_blank" rel="noopener noreferrer" class="btn" id="link-dse-official" style="text-decoration: none;">DSE Official Page &nearr;</a>
+      </div>
+    </section>
+
+    <!-- Company Full Name Heading -->
+    <section aria-label="Company Whole Details">
+      <h2 class="detail-company-heading" id="detail-company-heading">LOADING COMPANY...</h2>
+
+      <!-- 1. Whole Company Details Table (Matches Classic Zaman Analysis Model) -->
+      <div class="hourly-table-wrap" style="margin-bottom: 10px;">
+        <table class="hourly-sector-table" id="detail-company-table">
+          <thead>
+            <tr>
+              <th>Total no. of<br />securities</th>
+              <th>public<br />proportion<br />(in quantity)</th>
+              <th>PE Details</th>
+              <th>Category</th>
+              <th>Year<br />End</th>
+              <th>Day's<br />Range</th>
+              <th>52<br />week<br />range</th>
+              <th>Market<br />lot</th>
+              <th>Last AGM</th>
+              <th>Listing<br />Year</th>
+              <th>Institution<br />proportion<br />(in quantity)</th>
+              <th>Govt.<br />proportion<br />(in quantity)</th>
+              <th>Sponsor<br />proportion<br />(in quantity)</th>
+              <th>Foreign<br />proportion<br />(in quantity)</th>
+            </tr>
+          </thead>
+          <tbody id="detail-company-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Additional Company Metadata Strip -->
+      <div class="detail-extra-strip" id="detail-extra-strip"></div>
+    </section>
+
+    <!-- 2. Last 3 Months Hourly Information Table -->
+    <section aria-label="Last 3 Months Hourly Information">
+      <div class="hourly-table-wrap" id="detail-hourly-wrap">
+        <table class="hourly-sector-table" id="detail-hourly-table">
+          <thead id="detail-hourly-thead"></thead>
+          <tbody id="detail-hourly-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Optional Direct Supabase Connection Modal -->
+  <div class="modal-backdrop" id="supabase-modal" hidden>
+    <div class="modal-card" role="dialog" aria-labelledby="modal-title">
+      <div class="panel-header">
+        <span class="panel-title" id="modal-title">Direct Supabase Connection (Optional)</span>
+      </div>
+      <p class="brand-subtitle">
+        By default, this page loads the 3-month dataset exported by GitHub Actions.
+        You can also connect directly to your Supabase project using your public <code>anon</code> key to query live 3-month half-hourly rows for this symbol.
+      </p>
+      <div class="form-field">
+        <label for="input-supabase-url">Supabase Project URL</label>
+        <input type="url" id="input-supabase-url" placeholder="https://your-project.supabase.co" />
+      </div>
+      <div class="form-field">
+        <label for="input-supabase-key">Supabase Anon / Public Key</label>
+        <input type="password" id="input-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+        <button type="button" class="btn" id="btn-clear-supabase">Use GitHub Snapshot</button>
+        <button type="button" class="btn" id="btn-close-modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-save-supabase">Connect &amp; Fetch</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./detail.js"></script>
+</body>
+</html>
