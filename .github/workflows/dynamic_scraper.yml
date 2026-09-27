@@ -1,11 +1,7 @@
 name: Half-Hourly DSE Dynamic Scraper
 
 on:
-  schedule:
-    # Runs every 30 mins between 4:00 AM and 8:30 AM UTC 
-    # (Matches 10:00 AM to 2:30 PM Bangladesh Standard Time), Sunday through Thursday
-    - cron: '0,30 4-8 * * 0-4'
-  workflow_dispatch: # Allows manual trigger from the GitHub UI
+  workflow_dispatch: # Triggered externally by cron-job.org (every 30 mins, 10:00 AM - 2:30 PM BST, Sun-Thu) or manually from GitHub UI
 
 permissions:
   contents: read
