@@ -17,7 +17,7 @@ const state = {
   searchQuery: "",
   selectedSector: "all",
   daysLimit: 10,
-  colorCode: false,
+  colorCode: true,
   theme: localStorage.getItem("dse_hourly_theme") || "light",
 };
 

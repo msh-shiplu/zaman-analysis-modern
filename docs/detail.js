@@ -21,7 +21,7 @@
   let state = {
     selectedSymbol: "ISLAMIINS",
     deltaMetric: "vol", // "vol" | "val" | "ltp"
-    colorCode: false,
+    colorCode: true,
     sourceLabel: "Snapshot",
     allSymbols: [],
     companyDetailsMap: {},

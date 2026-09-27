@@ -29,7 +29,7 @@
     selectedSector: "all",
     windowMode: "standard", // "standard" | "populated" | "raw"
     deltaMetric: "vol", // "vol" | "val" | "ltp"
-    colorCode: false,
+    colorCode: true,
   };
 
   const fmtInt = (val) => {
