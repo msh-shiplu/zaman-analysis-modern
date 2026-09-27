@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # Triggered externally by cron-job.org (every 30 mins, 10:00 AM - 2:30 PM BST, Sun-Thu) or manually from GitHub UI
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -38,6 +38,13 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python scraper.py --type dynamic --export-web docs/data
+
+      - name: Persist Rolling 3-Month Archive
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/data/hourly_3m.json docs/data/daily_3m.json docs/data/index_history.json docs/data/symbol_meta.json || true
+          git diff --cached --quiet || (git commit -m "Update rolling 3-month hourly and daily archive [skip ci]" && git pull --rebase origin main && git push origin HEAD:main)
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

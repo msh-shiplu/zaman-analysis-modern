@@ -788,6 +788,7 @@ def export_web_data(
         if rows_info:
             rows_info.sort(key=lambda x: x["date"], reverse=True)
             official_totals = {}
+            live_session_row = None
             try:
                 r_mkt = requests.get(
                     "https://dsebd.org/api/live/market",
@@ -796,6 +797,26 @@ def export_web_data(
                 ).json()
                 for t in r_mkt.get("dailyTotals", []):
                     official_totals[t["date"][:10]] = t
+                sess_date = (r_mkt.get("session") or {}).get("sessionDate")
+                idx_map = {item["key"]: item for item in (r_mkt.get("indices") or []) if "key" in item}
+                tot = r_mkt.get("totals") or {}
+                brd = r_mkt.get("breadth") or {}
+                if sess_date and idx_map.get("DSEX"):
+                    live_session_row = {
+                        "date": sess_date[:10],
+                        "dsex": round(float(idx_map.get("DSEX", {}).get("value") or 0), 2),
+                        "dsex_chg": round(float(idx_map.get("DSEX", {}).get("change") or 0), 2),
+                        "dses": round(float(idx_map.get("DSES", {}).get("value") or 0), 2),
+                        "dses_chg": round(float(idx_map.get("DSES", {}).get("change") or 0), 2),
+                        "ds30": round(float(idx_map.get("DS30", {}).get("value") or 0), 2),
+                        "ds30_chg": round(float(idx_map.get("DS30", {}).get("change") or 0), 2),
+                        "value": round(float(tot.get("turnover") or 0), 2),
+                        "volume": int(tot.get("volume") or 0),
+                        "trades": int(tot.get("trades") or 0),
+                        "adv": int(brd.get("advanced") or 0),
+                        "dec": int(brd.get("declined") or 0),
+                        "flat": int(brd.get("unchanged") or 0),
+                    }
             except Exception:
                 pass
 
@@ -814,10 +835,16 @@ def export_web_data(
                     pass
 
             index_history = []
+            seen_idx_dates = set()
+            if live_session_row and (not rows_info or rows_info[0]["date"][:10] < live_session_row["date"]):
+                index_history.append(live_session_row)
+                seen_idx_dates.add(live_session_row["date"])
+
             for i, row in enumerate(rows_info):
                 d = row["date"][:10]
-                if d < cutoff_date:
+                if d < cutoff_date or d in seen_idx_dates:
                     continue
+                seen_idx_dates.add(d)
                 prev = rows_info[i + 1] if i + 1 < len(rows_info) else None
                 dsex = round(float(row.get("dsex") or 0), 2)
                 dses = round(float(row.get("dses") or 0), 2)
@@ -828,9 +855,9 @@ def export_web_data(
                 val = round(float(row.get("value") or 0), 2)
                 ot = official_totals.get(d)
                 eb = existing_breadth.get(d, {"adv": 0, "dec": 0, "flat": 0})
-                adv = int(ot["advanced"]) if ot and ot.get("advanced") is not None else eb["adv"]
-                dec = int(ot["declined"]) if ot and ot.get("declined") is not None else eb["dec"]
-                flat = int(ot["unchanged"]) if ot and ot.get("unchanged") is not None else eb["flat"]
+                adv = int(ot["advanced"]) if ot and ot.get("advanced") is not None else (live_session_row["adv"] if live_session_row and live_session_row["date"] == d else eb["adv"])
+                dec = int(ot["declined"]) if ot and ot.get("declined") is not None else (live_session_row["dec"] if live_session_row and live_session_row["date"] == d else eb["dec"])
+                flat = int(ot["unchanged"]) if ot and ot.get("unchanged") is not None else (live_session_row["flat"] if live_session_row and live_session_row["date"] == d else eb["flat"])
                 index_history.append({
                     "date": d,
                     "dsex": dsex,
