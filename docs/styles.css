@@ -1001,3 +1001,110 @@ html, body {
   color: #333333;
 }
 
+/* Password Gate Lock Screen (docs/auth.js) */
+html.auth-locked body {
+  overflow: hidden !important;
+}
+
+html.auth-locked body > *:not(#zaman-auth-overlay) {
+  display: none !important;
+}
+
+.auth-lock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background-color: var(--bg-canvas);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.auth-lock-card {
+  width: 100%;
+  max-width: 410px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 28px 26px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.auth-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-lock-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-password-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth-password-wrap input {
+  flex: 1;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  padding: 9px 12px;
+  outline: none;
+}
+
+.auth-password-wrap input:focus {
+  border-color: var(--accent-primary);
+}
+
+.auth-toggle-pw {
+  min-width: 56px;
+  justify-content: center;
+}
+
+.auth-options-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.auth-remember-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.auth-error-msg {
+  background-color: var(--down-bg);
+  border: 1px solid var(--down-border);
+  color: var(--down-color);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.auth-submit-btn {
+  width: 100%;
+  justify-content: center;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+
