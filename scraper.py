@@ -486,16 +486,25 @@ def fetch_symbol_metadata(export_dir: str) -> Dict[str, Dict[str, str]]:
                 idx_brd = cols.index("board") if "board" in cols else -1
                 for row in rows:
                     code = str(row[idx_code] or "").strip()
-                    if not code:
+                    if not code or re.match(r"^TB\d+Y", code, re.I):
                         continue
                     sec_raw = str(row[idx_sec] or "").strip()
+                    sec_mapped = SECTOR_NAME_MAP.get(sec_raw, sec_raw or "Others")
+                    if "G-SEC" in sec_mapped.upper() or "T.BOND" in sec_mapped.upper():
+                        meta.pop(code, None)
+                        continue
                     cat = str(row[idx_cat] or "").strip()
                     board = str(row[idx_brd] or "").strip() if idx_brd >= 0 else ""
                     meta[code] = {
-                        "sector": SECTOR_NAME_MAP.get(sec_raw, sec_raw or "Others"),
+                        "sector": sec_mapped,
                         "category": cat,
                         "board": board,
                     }
+                # Ensure any cached G-SEC (T.Bond) entries are removed
+                for k in list(meta.keys()):
+                    s_name = str(meta[k].get("sector") or "").upper()
+                    if re.match(r"^TB\d+Y", k, re.I) or "G-SEC" in s_name or "T.BOND" in s_name:
+                        meta.pop(k, None)
                 with open(meta_file, "w", encoding="utf-8") as f:
                     json.dump(meta, f, separators=(",", ":"), sort_keys=True)
     except Exception as e:

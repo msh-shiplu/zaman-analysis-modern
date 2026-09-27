@@ -76,7 +76,9 @@
 
     // Collect all slot keys across history
     const slotAgg = {};
-    const allSymbolKeys = Array.from(new Set([...Object.keys(history), ...Object.keys(dynMap)])).sort();
+    const allSymbolKeys = Array.from(new Set([...Object.keys(history), ...Object.keys(dynMap)]))
+      .filter((sym) => !/^TB\d+Y/i.test(sym))
+      .sort();
 
     for (const sym of allSymbolKeys) {
       const pts = history[sym] || [];

@@ -123,11 +123,13 @@ function buildStocksBySector() {
   const sectorsMap = new Map();
 
   for (const sym of allSymbols) {
+    if (/^TB\d+Y/i.test(sym)) continue;
     const sRow = staticMap.get(sym) || {};
     const mRow = metaObj[sym] || {};
     const dRow = dynamicMap.get(sym) || {};
 
     const sector = sRow.sector || mRow.sector || "Others";
+    if (/G-SEC|T\.BOND/i.test(sector)) continue;
     const category = sRow.category || mRow.category || "";
     const pe1 = toNum(sRow.pe_1);
     const pe2 = toNum(sRow.pe_2);

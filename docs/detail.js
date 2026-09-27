@@ -520,7 +520,16 @@
         ...Object.keys(dynMap),
         ...Object.keys(statMap),
       ])
-    ).sort();
+    )
+      .filter((sym) => {
+        if (/^TB\d+Y/i.test(sym)) return false;
+        const sec =
+          (companyDetails[sym] && companyDetails[sym].sector) ||
+          (statMap[sym] && statMap[sym].sector) ||
+          "";
+        return !/G-SEC|T\.BOND/i.test(sec);
+      })
+      .sort();
 
     state.allSymbols = allSyms;
     state.companyDetailsMap = companyDetails;

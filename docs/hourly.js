@@ -164,9 +164,11 @@
     const sectorSet = new Set();
 
     for (const sym of allSymbolKeys) {
+      if (/^TB\d+Y/i.test(sym)) continue;
       const st = statMap[sym] || {};
       const sm = symbolMeta[sym] || {};
       const sector = st.sector || sm.sector || "Others";
+      if (/G-SEC|T\.BOND/i.test(sector)) continue;
       const category = st.category || sm.category || "";
       sectorSet.add(sector);
 

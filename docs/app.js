@@ -90,7 +90,9 @@
 
     const allSymbols = Array.from(
       new Set([...Object.keys(dynamicMap), ...Object.keys(staticMap)])
-    ).sort();
+    )
+      .filter((sym) => !/^TB\d+Y/i.test(sym))
+      .sort();
 
     const merged = [];
     for (const sym of allSymbols) {
