@@ -773,7 +773,10 @@ def export_web_data(
                 if not sym:
                     continue
                 vol = int(float(r.get("volume") or 0))
-                cp = round(float(r.get("close") or r.get("ltp") or r.get("ycp") or 0), 2)
+                ltp_v = float(r.get("ltp") or 0)
+                close_v = float(r.get("close") or 0)
+                ycp_v = float(r.get("ycp") or 0)
+                cp = round(ltp_v if ltp_v > 0 else (close_v if close_v > 0 else ycp_v), 2)
                 existing = [row for row in daily_3m.get(sym, []) if row[0] >= cutoff_date and row[0] != intraday_date_bst]
                 existing.insert(0, [intraday_date_bst, vol, cp])
                 existing.sort(key=lambda x: x[0], reverse=True)
@@ -806,7 +809,11 @@ def export_web_data(
                 ).json()
                 for t in r_mkt.get("dailyTotals", []):
                     official_totals[t["date"][:10]] = t
-                sess_date = (r_mkt.get("session") or {}).get("sessionDate")
+                sess_obj = r_mkt.get("session") or {}
+                if sess_obj.get("tradingDay") and sess_obj.get("date"):
+                    sess_date = sess_obj.get("date")
+                else:
+                    sess_date = intraday_date_bst or sess_obj.get("sessionDate") or sess_obj.get("date")
                 idx_map = {item["key"]: item for item in (r_mkt.get("indices") or []) if "key" in item}
                 tot = r_mkt.get("totals") or {}
                 brd = r_mkt.get("breadth") or {}

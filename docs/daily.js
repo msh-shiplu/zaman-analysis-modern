@@ -86,13 +86,16 @@ function getAllDatesDesc() {
       if (row && row.date) dateSet.add(row.date.slice(0, 10));
     }
   }
-  if (dateSet.size === 0 && state.daily3m) {
+  if (state.daily3m) {
     for (const sym of Object.keys(state.daily3m)) {
       const rows = state.daily3m[sym] || [];
       for (const r of rows) {
         if (r && r[0]) dateSet.add(String(r[0]).slice(0, 10));
       }
     }
+  }
+  if (state.marketData && state.marketData.intraday_date_bst) {
+    dateSet.add(String(state.marketData.intraday_date_bst).slice(0, 10));
   }
   return Array.from(dateSet).sort((a, b) => b.localeCompare(a));
 }
@@ -146,12 +149,22 @@ function buildStocksBySector() {
       }
     }
 
-    // Ensure latest intraday date is also populated if present in market_data.json
+    // Always overlay today's live LTP & Volume from market_data.json for the latest session date
     const latestDate = state.marketData && state.marketData.intraday_date_bst;
-    if (latestDate && !dateMap.has(latestDate) && dRow.symbol) {
-      dateMap.set(latestDate, {
-        vol: toNum(dRow.volume) ?? 0,
-        cp: toNum(dRow.close) ?? toNum(dRow.ltp) ?? toNum(dRow.ycp) ?? 0,
+    if (latestDate && dRow.symbol) {
+      const liveVol = toNum(dRow.volume) ?? 0;
+      const ltpVal = toNum(dRow.ltp);
+      const closeVal = toNum(dRow.close);
+      const ycpVal = toNum(dRow.ycp);
+      const livePrice =
+        ltpVal !== null && ltpVal > 0
+          ? ltpVal
+          : closeVal !== null && closeVal > 0
+          ? closeVal
+          : ycpVal ?? 0;
+      dateMap.set(latestDate.slice(0, 10), {
+        vol: liveVol,
+        cp: livePrice,
       });
     }
 
