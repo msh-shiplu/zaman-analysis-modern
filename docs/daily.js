@@ -327,16 +327,20 @@ function renderSectorDailyTables(allDatesDesc, datesToShow) {
 
     let rowsHtml = "";
     for (const st of filteredStocks) {
-      const pe1Str = st.pe1 !== null ? fmtPrice.format(st.pe1) : "";
-      const pe2Str = st.pe2 !== null ? fmtPrice.format(st.pe2) : "";
-      const peSub =
-        pe1Str || pe2Str ? `${pe1Str}${pe2Str ? "/" + pe2Str : ""}` : "";
+      const pe1Str =
+        st.pe1 !== null && st.pe1 !== undefined && Number(st.pe1) > 0
+          ? fmtPrice.format(st.pe1)
+          : "0";
+      const pe2Str =
+        st.pe2 !== null && st.pe2 !== undefined && Number(st.pe2) > 0
+          ? fmtPrice.format(st.pe2)
+          : "0";
+      const peSub = `${pe1Str}/${pe2Str}`;
+      const catHtml = st.category
+        ? `<sub class="stock-cat-sub">${st.category}</sub>`
+        : "";
 
-      let cellsHtml = `<td class="stock-name-cell">
-        ${peSub ? `<span class="stock-pe-sub">${peSub}</span>` : ""}
-        <a class="stock-code-link" href="./detail.html?symbol=${encodeURIComponent(st.symbol)}" title="Click to view Detail Analysis &amp; 3-Month Hourly History for ${st.symbol}">${st.symbol}</a>
-        ${st.category ? `<span class="stock-cat-sub">${st.category}</span>` : ""}
-      </td>`;
+      let cellsHtml = `<td class="stock-name-cell"><sub class="stock-pe-sub">${peSub}</sub><a class="stock-code-link" href="./detail.html?symbol=${encodeURIComponent(st.symbol)}" title="Click to view Detail Analysis &amp; 3-Month Hourly History for ${st.symbol}">${st.symbol}</a>${catHtml}</td>`;
 
       for (const d of datesToShow) {
         const entry = st.dateMap.get(d);

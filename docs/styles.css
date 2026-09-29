@@ -868,23 +868,24 @@ html, body {
 .stock-name-cell {
   white-space: nowrap;
   font-family: var(--font-mono);
-  font-size: 12.5px;
-  min-width: 150px;
+  min-width: 155px;
 }
 
 .stock-pe-sub {
-  font-size: 10.5px;
-  font-weight: 400;
-  color: var(--text-muted);
-  vertical-align: baseline;
-  margin-right: 4px;
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  vertical-align: sub;
+  line-height: 1;
+  margin-right: 2px;
 }
 
 .stock-code-link {
   color: var(--text-primary);
   text-decoration: none;
-  font-weight: 600;
-  font-size: 12.5px;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.1;
   transition: color 0.12s ease;
 }
 
@@ -894,16 +895,12 @@ html, body {
 }
 
 .stock-cat-sub {
-  display: inline-block;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
   color: var(--text-secondary);
-  background-color: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 0 4px;
-  margin-left: 5px;
-  vertical-align: middle;
+  vertical-align: sub;
+  line-height: 1;
+  margin-left: 2px;
 }
 
 .hr-cell {
