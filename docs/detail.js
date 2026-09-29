@@ -428,9 +428,9 @@
         }).join("");
 
         return `<tr>
-          <td style="font-family: Georgia, serif; font-size: 12.5px; white-space: nowrap;">${day.dateLabel}</td>
-          <td style="font-family: Georgia, serif; font-size: 12.5px;">${fmtInt(day.volume)}</td>
-          <td style="font-family: Georgia, serif; font-size: 12.5px;">${fmtFixed(day.cp, 2)}</td>
+          <td>${day.dateLabel}</td>
+          <td>${fmtInt(day.volume)}</td>
+          <td>${fmtFixed(day.cp, 2)}</td>
           ${winCellsHtml}
         </tr>`;
       })
@@ -601,15 +601,15 @@
 
     document.getElementById("btn-export-detail-csv").addEventListener("click", exportDetailCSV);
 
-    const savedTheme = localStorage.getItem(STORAGE_HOURLY_THEME_KEY) || "light";
+    const savedTheme = localStorage.getItem("zaman_dse_theme") || "dark";
     document.documentElement.setAttribute("data-theme", savedTheme);
     const themeBtn = document.getElementById("btn-theme-toggle");
     themeBtn.textContent = savedTheme === "dark" ? "Light Mode" : "Dark Mode";
     themeBtn.addEventListener("click", () => {
-      const current = document.documentElement.getAttribute("data-theme") || "light";
+      const current = document.documentElement.getAttribute("data-theme") || "dark";
       const next = current === "dark" ? "light" : "dark";
       document.documentElement.setAttribute("data-theme", next);
-      localStorage.setItem(STORAGE_HOURLY_THEME_KEY, next);
+      localStorage.setItem("zaman_dse_theme", next);
       themeBtn.textContent = next === "dark" ? "Light Mode" : "Dark Mode";
     });
 

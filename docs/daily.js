@@ -18,7 +18,7 @@ const state = {
   selectedSector: "all",
   daysLimit: 10,
   colorCode: true,
-  theme: localStorage.getItem("dse_hourly_theme") || "light",
+  theme: localStorage.getItem("zaman_dse_theme") || "dark",
 };
 
 const fmtInt = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
@@ -41,9 +41,9 @@ function formatDateDDMMYYYY(isoDate) {
 }
 
 function applyTheme(theme) {
-  state.theme = theme === "dark" ? "dark" : "light";
+  state.theme = theme === "light" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", state.theme);
-  localStorage.setItem("dse_hourly_theme", state.theme);
+  localStorage.setItem("zaman_dse_theme", state.theme);
   const btn = document.getElementById("btn-theme-toggle");
   if (btn) {
     btn.textContent = state.theme === "dark" ? "Light Mode" : "Dark Mode";

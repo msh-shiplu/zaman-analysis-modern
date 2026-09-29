@@ -594,15 +594,15 @@
 
     document.getElementById("btn-export-hourly-csv").addEventListener("click", exportHourlyCSV);
 
-    const savedTheme = localStorage.getItem(STORAGE_HOURLY_THEME_KEY) || "light";
+    const savedTheme = localStorage.getItem("zaman_dse_theme") || "dark";
     document.documentElement.setAttribute("data-theme", savedTheme);
     const themeBtn = document.getElementById("btn-theme-toggle");
     themeBtn.textContent = savedTheme === "dark" ? "Light Mode" : "Dark Mode";
     themeBtn.addEventListener("click", () => {
-      const current = document.documentElement.getAttribute("data-theme") || "light";
+      const current = document.documentElement.getAttribute("data-theme") || "dark";
       const next = current === "dark" ? "light" : "dark";
       document.documentElement.setAttribute("data-theme", next);
-      localStorage.setItem(STORAGE_HOURLY_THEME_KEY, next);
+      localStorage.setItem("zaman_dse_theme", next);
       themeBtn.textContent = next === "dark" ? "Light Mode" : "Dark Mode";
     });
 

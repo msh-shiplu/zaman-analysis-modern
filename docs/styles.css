@@ -786,26 +786,26 @@ html, body {
 }
 
 .industry-section {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .industry-heading {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-primary);
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  margin: 18px 0 12px;
-  line-height: 1.25;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 14px 0 8px;
+  line-height: 1.35;
 }
 
 .hourly-table-wrap {
   width: 100%;
   overflow-x: auto;
   background-color: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 
 .hourly-sector-table {
@@ -815,37 +815,35 @@ html, body {
 }
 
 .hourly-sector-table thead th {
+  position: sticky;
+  top: 0;
   background-color: var(--bg-elevated);
-  color: var(--text-primary);
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 12.5px;
-  font-weight: 700;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   text-align: center;
-  padding: 10px 8px;
-  border: 1px solid var(--border-default);
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-default);
   white-space: nowrap;
+  z-index: 10;
 }
 
-[data-theme="light"] .hourly-sector-table thead th {
-  background-color: #dddddd;
-  color: #111111;
-  border-color: #cccccc;
+.hourly-sector-table thead th:first-child {
+  text-align: left;
 }
 
-.hourly-sector-table tbody tr:nth-child(odd) {
+.hourly-sector-table thead th:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+.hourly-sector-table tbody tr {
+  border-bottom: 1px solid var(--border-subtle);
   background-color: var(--bg-surface);
-}
-
-.hourly-sector-table tbody tr:nth-child(even) {
-  background-color: var(--bg-elevated);
-}
-
-[data-theme="light"] .hourly-sector-table tbody tr:nth-child(odd) {
-  background-color: #ffffff;
-}
-
-[data-theme="light"] .hourly-sector-table tbody tr:nth-child(even) {
-  background-color: #f2f2f2;
+  transition: background-color 0.1s ease;
 }
 
 .hourly-sector-table tbody tr:hover {
@@ -853,58 +851,59 @@ html, body {
 }
 
 .hourly-sector-table td {
-  border: 1px solid var(--border-subtle);
-  padding: 6px 8px;
+  padding: 8px 12px;
   text-align: center;
   vertical-align: middle;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-primary);
+  white-space: nowrap;
 }
 
-[data-theme="light"] .hourly-sector-table td {
-  border-color: #dddddd;
+.hourly-sector-table td:first-child {
+  text-align: left;
+  font-weight: 600;
 }
 
 .stock-name-cell {
   white-space: nowrap;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
   min-width: 150px;
 }
 
 .stock-pe-sub {
   font-size: 10.5px;
-  color: var(--text-secondary);
+  font-weight: 400;
+  color: var(--text-muted);
   vertical-align: baseline;
-  margin-right: 1px;
-}
-
-[data-theme="light"] .stock-pe-sub {
-  color: #222222;
+  margin-right: 4px;
 }
 
 .stock-code-link {
-  color: #3b82f6;
-  text-decoration: underline;
+  color: var(--text-primary);
+  text-decoration: none;
   font-weight: 600;
-  font-size: 13px;
-}
-
-[data-theme="light"] .stock-code-link {
-  color: #1e4b8f;
+  font-size: 12.5px;
+  transition: color 0.12s ease;
 }
 
 .stock-code-link:hover {
   color: var(--accent-primary-hover);
+  text-decoration: underline;
 }
 
 .stock-cat-sub {
+  display: inline-block;
   font-size: 10px;
+  font-weight: 600;
   color: var(--text-secondary);
-  vertical-align: sub;
-  margin-left: 1px;
-}
-
-[data-theme="light"] .stock-cat-sub {
-  color: #222222;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+  margin-left: 5px;
+  vertical-align: middle;
 }
 
 .hr-cell {
@@ -912,10 +911,11 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  line-height: 1.25;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 12.5px;
-  min-width: 68px;
+  gap: 1px;
+  line-height: 1.3;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  min-width: 72px;
 }
 
 .hr-vol {
@@ -923,64 +923,53 @@ html, body {
 }
 
 .hr-ltp {
-  color: var(--text-primary);
-  font-weight: 500;
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .hr-delta {
-  color: var(--text-secondary);
-}
-
-[data-theme="light"] .hr-vol,
-[data-theme="light"] .hr-ltp,
-[data-theme="light"] .hr-delta {
-  color: #222222;
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 .color-coded .hr-ltp.up {
   color: var(--up-color);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .color-coded .hr-ltp.down {
   color: var(--down-color);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* Detail Analysis Page Styles */
 .detail-company-heading {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 20px;
+  font-family: var(--font-sans);
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
-  text-decoration: underline;
-  text-underline-offset: 4px;
   text-transform: uppercase;
-  margin: 8px 0 12px;
-  line-height: 1.3;
+  letter-spacing: 0.02em;
+  margin: 6px 0 10px;
+  line-height: 1.35;
 }
 
 .pe-subgrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   border: 1px solid var(--border-subtle);
-  min-width: 84px;
-}
-
-[data-theme="light"] .pe-subgrid {
-  border-color: #cccccc;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  min-width: 88px;
 }
 
 .pe-subcell {
-  padding: 5px 6px;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 12px;
+  padding: 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
   text-align: center;
   border: 0.5px solid var(--border-subtle);
-}
-
-[data-theme="light"] .pe-subcell {
-  border-color: #cccccc;
+  background-color: var(--bg-elevated);
 }
 
 .detail-extra-strip {
@@ -990,15 +979,10 @@ html, body {
   padding: 10px 14px;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  font-family: Georgia, 'Times New Roman', serif;
+  border-radius: var(--radius-lg);
+  font-family: var(--font-sans);
   font-size: 12.5px;
   color: var(--text-secondary);
-}
-
-[data-theme="light"] .detail-extra-strip {
-  border-color: #dddddd;
-  color: #333333;
 }
 
 /* Password Gate Lock Screen (docs/auth.js) */
