@@ -141,18 +141,20 @@
       new Set([...Object.keys(history), ...Object.keys(dynMap)])
     ).sort();
 
-    const slotVolTotals = {};
+    const slotActiveCounts = {};
     for (const sym of allSymbolKeys) {
       const pts = history[sym] || [];
       for (const p of pts) {
         const sKey = p.t ? toDhakaSlotKey(p.t) : (p.slot || "");
         if (!sKey) continue;
         p._bstSlot = sKey;
-        slotVolTotals[sKey] = (slotVolTotals[sKey] || 0) + Number(p.v || 0);
+        if (Number(p.v || 0) > 0) {
+          slotActiveCounts[sKey] = (slotActiveCounts[sKey] || 0) + 1;
+        }
       }
     }
-    for (const [sKey, totVol] of Object.entries(slotVolTotals)) {
-      if (totVol > 0) allSlotSet.add(sKey);
+    for (const [sKey, activeCnt] of Object.entries(slotActiveCounts)) {
+      if (activeCnt >= 10) allSlotSet.add(sKey);
     }
 
     const sortedAllSlots = Array.from(allSlotSet).sort();

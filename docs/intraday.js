@@ -115,7 +115,7 @@
     }
 
     const sortedSlotKeys = Object.keys(slotAgg)
-      .filter((k) => slotAgg[k].total_volume > 0)
+      .filter((k) => slotAgg[k].total_volume > 0 && (slotAgg[k].adv + slotAgg[k].dec + slotAgg[k].flat) >= 10)
       .sort();
     // Filter to the latest date in BST so only today's session slots are shown
     const latestDate =

@@ -373,20 +373,27 @@ def fetch_and_store_dynamic(supabase: Optional[Client] = None, dry_run: bool = F
             cleaned_records = clean_records(records)
 
             total_vol = sum(float(r.get("volume") or 0) for r in cleaned_records)
-            if total_vol > 0:
+            traded_symbols = sum(1 for r in cleaned_records if float(r.get("volume") or 0) > 0)
+            if traded_symbols >= 50:
                 print(
                     f"Fetched and cleaned {len(cleaned_records)} dynamic market records "
-                    f"(total market volume: {int(total_vol):,})."
+                    f"({traded_symbols} active symbols, total volume: {int(total_vol):,})."
                 )
                 break
 
             if attempt < max_attempts:
                 print(
-                    f"[Opening Bell Wait] Total market volume is 0 across all {len(cleaned_records)} symbols "
-                    f"(DSE board just reset at 10:00 AM and has not published opening trades yet). "
-                    f"Waiting {retry_delay_sec}s before retry {attempt + 1}/{max_attempts}..."
+                    f"[Opening Bell Wait] Only {traded_symbols}/{len(cleaned_records)} symbols have non-zero volume "
+                    f"(total volume: {int(total_vol):,}). Waiting {retry_delay_sec}s for DSE opening trades to populate "
+                    f"(retry {attempt + 1}/{max_attempts})..."
                 )
                 time.sleep(retry_delay_sec)
+            elif traded_symbols > 0:
+                print(
+                    f"[Note] Proceeding after {max_attempts} attempts with {traded_symbols} active symbols "
+                    f"(total volume: {int(total_vol):,})."
+                )
+                break
             else:
                 print(
                     "[Note] Total market volume is still 0 after all retries. "
@@ -647,8 +654,12 @@ def export_web_data(
                     slot_info["total_volume"] += int(float(r.get("volume") or 0))
                     slot_info["total_trades"] += int(float(r.get("trade") or 0))
 
-            # Filter out any pre-trade reset slot where total market volume across all symbols was 0
-            empty_slots = {k for k, v in slot_map.items() if v.get("total_volume", 0) == 0}
+            # Filter out any pre-trade reset slot where fewer than 10 symbols had active trades/prices
+            empty_slots = {
+                k
+                for k, v in slot_map.items()
+                if v.get("total_volume", 0) == 0 or (v.get("adv", 0) + v.get("dec", 0) + v.get("flat", 0)) < 10
+            }
             for k in empty_slots:
                 slot_map.pop(k, None)
 
