@@ -352,21 +352,47 @@ def save_records_to_file(records: List[Dict[str, Any]], prefix: str):
 
 def fetch_and_store_dynamic(supabase: Optional[Client] = None, dry_run: bool = False, save: bool = False) -> List[Dict[str, Any]]:
     """Fetches real-time trade data and pushes it to Supabase (or displays/saves in dry-run mode)."""
-    current_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    print(f"Fetching dynamic market data at {current_utc} UTC...")
+    import time
+
+    max_attempts = 6
+    retry_delay_sec = 60
+    cleaned_records: List[Dict[str, Any]] = []
 
     try:
-        df = get_current_trade_data()
+        for attempt in range(1, max_attempts + 1):
+            current_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            print(f"Fetching dynamic market data at {current_utc} UTC (attempt {attempt}/{max_attempts})...")
 
-        if df is None or df.empty:
-            print("No dynamic data fetched. Market might be closed or website unreachable.")
-            return []
+            df = get_current_trade_data()
+            if df is None or df.empty:
+                print("No dynamic data fetched. Market might be closed or website unreachable.")
+                return []
 
-        df_cleaned = clean_dynamic_data(df)
-        records = df_cleaned.to_dict(orient='records')
-        cleaned_records = clean_records(records)
+            df_cleaned = clean_dynamic_data(df)
+            records = df_cleaned.to_dict(orient='records')
+            cleaned_records = clean_records(records)
 
-        print(f"Fetched and cleaned {len(cleaned_records)} dynamic market records. Columns: {list(df_cleaned.columns)}")
+            total_vol = sum(float(r.get("volume") or 0) for r in cleaned_records)
+            if total_vol > 0:
+                print(
+                    f"Fetched and cleaned {len(cleaned_records)} dynamic market records "
+                    f"(total market volume: {int(total_vol):,})."
+                )
+                break
+
+            if attempt < max_attempts:
+                print(
+                    f"[Opening Bell Wait] Total market volume is 0 across all {len(cleaned_records)} symbols "
+                    f"(DSE board just reset at 10:00 AM and has not published opening trades yet). "
+                    f"Waiting {retry_delay_sec}s before retry {attempt + 1}/{max_attempts}..."
+                )
+                time.sleep(retry_delay_sec)
+            else:
+                print(
+                    "[Note] Total market volume is still 0 after all retries. "
+                    "Skipping database insert to avoid recording an empty all-zero slot."
+                )
+                return []
 
         if save:
             save_records_to_file(cleaned_records, "dynamic")
@@ -621,11 +647,17 @@ def export_web_data(
                     slot_info["total_volume"] += int(float(r.get("volume") or 0))
                     slot_info["total_trades"] += int(float(r.get("trade") or 0))
 
+            # Filter out any pre-trade reset slot where total market volume across all symbols was 0
+            empty_slots = {k for k, v in slot_map.items() if v.get("total_volume", 0) == 0}
+            for k in empty_slots:
+                slot_map.pop(k, None)
+
             # Deduplicate per (symbol, slot) and sort each symbol's history chronologically
             for sym, pts in history_by_symbol.items():
                 dedup = {}
                 for p in reversed(pts):
-                    dedup[p["slot"]] = p
+                    if p["slot"] not in empty_slots:
+                        dedup[p["slot"]] = p
                 history_by_symbol[sym] = [dedup[k] for k in sorted(dedup.keys())]
 
         except Exception as e:

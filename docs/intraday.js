@@ -114,7 +114,9 @@
       }
     }
 
-    const sortedSlotKeys = Object.keys(slotAgg).sort();
+    const sortedSlotKeys = Object.keys(slotAgg)
+      .filter((k) => slotAgg[k].total_volume > 0)
+      .sort();
     // Filter to the latest date in BST so only today's session slots are shown
     const latestDate =
       payload.intraday_date_bst ||
