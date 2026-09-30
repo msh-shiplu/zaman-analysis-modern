@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zaman Analysis — Decision Radar &amp; Breakout Signals</title>
+  <meta name="description" content="Dhaka Stock Exchange (DSE) decision-support radar: Unusual Volume (RVOL) &amp; 30m Breakout Scanner, Intraday VWAP Buyer/Seller Control, Distribution Warnings, and Personal Watchlist." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./auth.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-group">
+        <div class="brand-mark">DSE</div>
+        <div>
+          <h1 class="brand-title">Zaman Analysis</h1>
+          <div class="brand-subtitle">Decision Radar: Unusual Volume (RVOL), 30m Breakouts, Intraday VWAP &amp; Watchlist</div>
+        </div>
+      </div>
+
+      <nav class="header-nav" aria-label="Primary Navigation">
+        <a href="./index.html" class="nav-link" id="nav-screener">Market &amp; P/E Screener</a>
+        <a href="./intraday.html" class="nav-link" id="nav-intraday">Today's Half-Hourly Data</a>
+        <a href="./hourly.html" class="nav-link" id="nav-hourly">Hourly Analysis</a>
+        <a href="./daily.html" class="nav-link" id="nav-daily">Daily Analysis</a>
+        <a href="./detail.html" class="nav-link" id="nav-detail">Detail Analysis</a>
+        <a href="./radar.html" class="nav-link active" id="nav-radar">Decision Radar</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="timestamp-badge" id="radar-session-badge" title="Latest session &amp; half-hourly window used for signals">
+          <span class="status-dot"></span>
+          <span id="radar-session-text">Loading signals...</span>
+        </div>
+        <button type="button" class="btn" id="btn-export-radar-csv" title="Download current decision radar table as CSV">Export CSV</button>
+        <button type="button" class="btn" id="btn-theme-toggle" title="Switch between Dark and Light mode">Light Mode</button>
+        <button type="button" class="btn btn-primary" id="btn-supabase-config">Supabase Live</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Decision Summary KPI Strip -->
+    <section class="kpi-strip" aria-label="Market Decision Signal Summary">
+      <div class="kpi-card radar-kpi-clickable" data-QuickFilter="breakout" title="Click to filter Volume Breakouts">
+        <div class="kpi-label">Volume Breakouts (RVOL ≥ 1.5x &amp; LTP ≥ VWAP)</div>
+        <div class="kpi-value text-up" id="kpi-breakout-count">--</div>
+        <div class="kpi-sub" id="kpi-breakout-sub">Top: --</div>
+      </div>
+
+      <div class="kpi-card radar-kpi-clickable" data-QuickFilter="surge30m" title="Click to filter Latest 30m Slot Surges">
+        <div class="kpi-label">Latest 30m Momentum Surge (+ΔLTP &amp; Vol Burst)</div>
+        <div class="kpi-value text-up" id="kpi-surge30m-count">--</div>
+        <div class="kpi-sub" id="kpi-surge30m-sub">Window: --</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Intraday Buyer vs Seller Control (vs VWAP)</div>
+        <div class="kpi-value" id="kpi-vwap-breadth">-- / --</div>
+        <div class="breadth-bar" aria-hidden="true">
+          <div class="breadth-seg-up" id="vwap-bar-buyers" style="width: 50%"></div>
+          <div class="breadth-seg-down" id="vwap-bar-sellers" style="width: 50%"></div>
+        </div>
+        <div class="kpi-sub">
+          <span class="text-up" id="kpi-vwap-above">0 Above VWAP</span>
+          <span class="text-down" id="kpi-vwap-below">0 Below VWAP</span>
+        </div>
+      </div>
+
+      <div class="kpi-card radar-kpi-clickable" data-QuickFilter="distribution" title="Click to filter Distribution / Bull-Trap Warnings">
+        <div class="kpi-label">Distribution Warnings (High Vol / Fade &lt; VWAP)</div>
+        <div class="kpi-value text-down" id="kpi-dist-count">--</div>
+        <div class="kpi-sub" id="kpi-dist-sub">Caution / Profit-taking alerts</div>
+      </div>
+    </section>
+
+    <!-- Personal Starred Watchlist Panel -->
+    <section class="watchlist-panel" id="watchlist-section" aria-label="Personal Starred Watchlist">
+      <div class="watchlist-header">
+        <div class="watchlist-title-group">
+          <span class="watchlist-star-icon">★</span>
+          <div>
+            <h2 class="panel-title">Personal Starred Watchlist</h2>
+            <span class="brand-subtitle" id="watchlist-summary-sub">Pin stocks with ★ in any table row or add below to track live VWAP control, RVOL &amp; alerts</span>
+          </div>
+        </div>
+
+        <div class="watchlist-controls">
+          <div class="watchlist-stats-pills" id="watchlist-stats-pills">
+            <span class="badge badge-flat" id="wl-pill-total">0 Starred</span>
+            <span class="badge badge-up" id="wl-pill-buyers">0 Buyer Control</span>
+            <span class="badge badge-up" id="wl-pill-rvol">0 High RVOL</span>
+            <span class="badge badge-down" id="wl-pill-warn">0 Warnings</span>
+          </div>
+
+          <div class="watchlist-add-group">
+            <input
+              type="text"
+              id="watchlist-add-input"
+              class="search-input watchlist-input"
+              placeholder="Add symbol (e.g. GP, BRACBANK)..."
+              list="all-symbols-datalist"
+              autocomplete="off"
+            />
+            <datalist id="all-symbols-datalist"></datalist>
+            <button type="button" class="btn btn-primary" id="btn-watchlist-add">+ Pin</button>
+            <button type="button" class="btn" id="btn-watchlist-toggle" title="Collapse or expand watchlist table">Hide</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="watchlist-body">
+        <div class="table-scroll watchlist-table-scroll" id="watchlist-table-wrap">
+          <table class="market-table" id="watchlist-table">
+            <thead>
+              <tr>
+                <th style="text-align: left;">★ Stock (PE / Cat)</th>
+                <th>Signal Verdict</th>
+                <th>Score</th>
+                <th>LTP</th>
+                <th>Day %</th>
+                <th>VWAP (BDT)</th>
+                <th>LTP vs VWAP</th>
+                <th>RVOL (vs 20D)</th>
+                <th>Latest 30m ΔVol / ΔLTP</th>
+                <th>Streak</th>
+                <th>3M Range Pos</th>
+              </tr>
+            </thead>
+            <tbody id="watchlist-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Top 4 Actionable Signal Buckets -->
+    <section class="movers-grid" aria-label="Top Decision Signal Buckets">
+      <div class="mover-panel">
+        <div class="panel-header">
+          <span class="panel-title">🟢 Top Volume Breakouts</span>
+          <span class="kpi-label">RVOL / Day %</span>
+        </div>
+        <div class="mini-list" id="list-radar-breakouts"></div>
+      </div>
+
+      <div class="mover-panel">
+        <div class="panel-header">
+          <span class="panel-title">🚀 30m Slot Momentum Bursts</span>
+          <span class="kpi-label">30m ΔLTP / Burst</span>
+        </div>
+        <div class="mini-list" id="list-radar-30m-burst"></div>
+      </div>
+
+      <div class="mover-panel">
+        <div class="panel-header">
+          <span class="panel-title">📈 Multi-Day Accumulation</span>
+          <span class="kpi-label">Streak / vs VWAP</span>
+        </div>
+        <div class="mini-list" id="list-radar-streak"></div>
+      </div>
+
+      <div class="mover-panel">
+        <div class="panel-header">
+          <span class="panel-title">⚠️ Distribution Warnings</span>
+          <span class="kpi-label">vs VWAP / RVOL</span>
+        </div>
+        <div class="mini-list" id="list-radar-distribution"></div>
+      </div>
+    </section>
+
+    <!-- Main Decision Scanner + Right-Hand Decision Scorecard Inspector -->
+    <section class="workspace-grid" aria-label="Decision Scanner and Stock Signal Scorecard">
+      <div class="screener-panel">
+        <div class="toolbar radar-toolbar">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1;">
+            <div class="search-box" style="min-width: 200px; flex: 1;">
+              <input
+                type="search"
+                id="radar-search-input"
+                class="search-input"
+                placeholder="Search symbol or sector..."
+                autocomplete="off"
+              />
+            </div>
+
+            <select id="radar-sector-select" class="select-control" aria-label="Filter by Sector">
+              <option value="all">All Sectors</option>
+            </select>
+
+            <select id="radar-category-select" class="select-control" aria-label="Filter by Category">
+              <option value="all">All Categories (A/B/Z)</option>
+              <option value="A">Category A Only</option>
+              <option value="AB">Category A &amp; B</option>
+              <option value="Z">Category Z</option>
+            </select>
+          </div>
+
+          <div class="filter-pills" id="radar-filter-group">
+            <button type="button" class="filter-btn active" data-filter="all">All Traded</button>
+            <button type="button" class="filter-btn" data-filter="watchlist">★ Watchlist</button>
+            <button type="button" class="filter-btn" data-filter="breakout">🟢 Vol Breakouts</button>
+            <button type="button" class="filter-btn" data-filter="surge30m">🚀 30m Surge</button>
+            <button type="button" class="filter-btn" data-filter="accumulation">📈 Multi-Day Up</button>
+            <button type="button" class="filter-btn" data-filter="support_bounce">🔄 Support Bounce</button>
+            <button type="button" class="filter-btn" data-filter="vwap_buyers">Above VWAP</button>
+            <button type="button" class="filter-btn" data-filter="distribution">⚠️ Distribution</button>
+          </div>
+        </div>
+
+        <div class="table-scroll">
+          <table class="market-table" id="radar-table">
+            <thead>
+              <tr>
+                <th data-sort="symbol" style="text-align: left;">★ Stock (PE / Cat)</th>
+                <th data-sort="signal_rank" style="text-align: left;">Signal Verdict</th>
+                <th data-sort="score" title="Composite Conviction Score (0-100) combining RVOL, VWAP control, Day Range, 30m momentum &amp; fundamentals">Score</th>
+                <th data-sort="ltp">LTP</th>
+                <th data-sort="pct_change">Day %</th>
+                <th data-sort="vwap" title="Today's Volume-Weighted Average Price = Total Value / Total Volume">VWAP</th>
+                <th data-sort="vwap_pct" title="Percentage distance of current LTP above or below today's Intraday VWAP">vs VWAP</th>
+                <th data-sort="rvol" title="Relative Volume = Today's Volume divided by 20-Day Average Daily Volume">RVOL (20D)</th>
+                <th data-sort="slot_delta_vol" title="Volume &amp; LTP change in the latest 30-minute trading window">30m ΔVol / ΔLTP</th>
+                <th data-sort="day_range_pct" title="Where LTP sits between Today's Low (0%) and Today's High (100%)">Day Pos</th>
+                <th data-sort="streak" title="Consecutive trading days of positive (+) or negative (-) close">Streak</th>
+                <th data-sort="range_3m_pct" title="Where LTP sits within its 3-Month Low-to-High trading range">3M Range</th>
+              </tr>
+            </thead>
+            <tbody id="radar-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right-Hand Decision Scorecard & Multi-Timeframe Inspector -->
+      <aside class="inspector-panel" id="radar-inspector">
+        <div class="inspector-header">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button type="button" class="star-btn star-btn-lg" id="insp-star-btn" title="Pin/unpin from Watchlist">☆</button>
+              <div class="inspector-symbol" id="insp-radar-symbol">--</div>
+              <span class="badge badge-flat" id="insp-radar-cat">--</span>
+            </div>
+            <div class="brand-subtitle" id="insp-radar-sector">Select any stock to inspect its 6-point decision checklist</div>
+          </div>
+          <div style="text-align: right;">
+            <div class="inspector-price" id="insp-radar-ltp">--</div>
+            <div style="margin-top: 2px;">
+              <span class="badge badge-flat" id="insp-radar-chg">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Verdict Banner -->
+        <div class="radar-verdict-banner" id="insp-verdict-banner">
+          <div class="radar-verdict-top">
+            <span class="radar-verdict-title" id="insp-verdict-label">Select a symbol</span>
+            <span class="radar-score-pill" id="insp-verdict-score">Score: --/100</span>
+          </div>
+          <div class="radar-verdict-reason" id="insp-verdict-reason">
+            Click any stock row in the scanner or watchlist to evaluate volume accumulation, intraday VWAP control, and 3-month support/resistance.
+          </div>
+        </div>
+
+        <!-- 6-Point Decision Checklist -->
+        <div>
+          <div class="kpi-label" style="margin-bottom: 6px;">6-Point Decision Checklist</div>
+          <div class="decision-checklist" id="insp-checklist">
+            <div class="check-item">
+              <span class="check-status">--</span>
+              <div class="check-text">
+                <div class="check-title">1. Intraday VWAP Control</div>
+                <div class="check-detail" id="chk-vwap-detail">--</div>
+              </div>
+            </div>
+            <div class="check-item">
+              <span class="check-status">--</span>
+              <div class="check-text">
+                <div class="check-title">2. Relative Volume (vs 20D Avg)</div>
+                <div class="check-detail" id="chk-rvol-detail">--</div>
+              </div>
+            </div>
+            <div class="check-item">
+              <span class="check-status">--</span>
+              <div class="check-text">
+                <div class="check-title">3. Latest 30m Window Burst</div>
+                <div class="check-detail" id="chk-30m-detail">--</div>
+              </div>
+            </div>
+            <div class="check-item">
+              <span class="check-status">--</span>
+              <div class="check-text">
+                <div class="check-title">4. Day Range Position (Close Strength)</div>
+                <div class="check-detail" id="chk-daypos-detail">--</div>
+              </div>
+            </div>
+            <div class="check-item">
+              <span class="check-status">--</span>
+              <div class="check-text">
+                <div class="check-title">5. Multi-Day Streak &amp; 3M Range</div>
+                <div class="check-detail" id="chk-3m-detail">--</div>
+              </div>
+            </div>
+            <div class="check-item">
+              <span class="check-status">--</span>
+              <div class="check-text">
+                <div class="check-title">6. Fundamental &amp; Holding Quality</div>
+                <div class="check-detail" id="chk-fund-detail">--</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Intraday LTP vs VWAP & 30m Volume Chart -->
+        <div class="chart-box">
+          <div class="chart-header">
+            <span>Today's Intraday LTP (Solid) vs VWAP (Dashed)</span>
+            <span id="insp-intra-slots-label">-- slots</span>
+          </div>
+          <svg class="chart-svg" id="insp-intra-vwap-svg" viewBox="0 0 380 155" preserveAspectRatio="none"></svg>
+        </div>
+
+        <!-- 20-Day Daily Price & Volume Bar Chart -->
+        <div class="chart-box">
+          <div class="chart-header">
+            <span>20-Day Daily Close &amp; Volume vs 20D Avg</span>
+            <span id="insp-daily-days-label">-- days</span>
+          </div>
+          <svg class="chart-svg" id="insp-daily-rvol-svg" viewBox="0 0 380 155" preserveAspectRatio="none"></svg>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px;">
+          <a href="./detail.html" class="btn" id="insp-detail-link" style="width: 100%; justify-content: center;">
+            Open Full 3-Month Detail Analysis →
+          </a>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <!-- Optional Direct Supabase Connection Modal -->
+  <div class="modal-backdrop" id="supabase-modal" hidden>
+    <div class="modal-card" role="dialog" aria-labelledby="modal-title">
+      <div class="panel-header">
+        <span class="panel-title" id="modal-title">Direct Supabase Connection (Optional)</span>
+      </div>
+      <p class="brand-subtitle">
+        By default, Decision Radar uses the GitHub Pages market snapshot + 3-month archives.
+        You can also connect directly to your Supabase project using your public <code>anon</code> key.
+      </p>
+
+      <div class="form-field">
+        <label for="input-supabase-url">Supabase Project URL</label>
+        <input type="url" id="input-supabase-url" placeholder="https://xxxx.supabase.co" autocomplete="off" />
+      </div>
+
+      <div class="form-field">
+        <label for="input-supabase-key">Supabase Public Anon Key</label>
+        <input type="password" id="input-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR..." autocomplete="off" />
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn" id="btn-clear-supabase">Use Default Snapshot</button>
+        <button type="button" class="btn" id="btn-close-modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-save-supabase">Connect Live</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./radar.js"></script>
+</body>
+</html>

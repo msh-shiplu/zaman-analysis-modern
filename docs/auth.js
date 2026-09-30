@@ -109,7 +109,22 @@
     return result;
   }
 
+  function injectDecisionRadarNav() {
+    const nav = document.querySelector(".header-nav");
+    if (!nav || document.getElementById("nav-radar")) return;
+    const link = document.createElement("a");
+    link.href = "./radar.html";
+    link.className = "nav-link";
+    link.id = "nav-radar";
+    link.textContent = "Decision Radar";
+    if (window.location.pathname.endsWith("/radar.html")) {
+      link.classList.add("active");
+    }
+    nav.appendChild(link);
+  }
+
   function injectHeaderLockButton() {
+    injectDecisionRadarNav();
     const actions = document.querySelector(".header-actions");
     if (!actions || document.getElementById("btn-auth-lock")) return;
     const btn = document.createElement("button");
